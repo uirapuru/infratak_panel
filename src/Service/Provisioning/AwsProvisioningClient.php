@@ -180,6 +180,16 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         return $this->sendSsmCommandAndWait($instanceId, $commands);
     }
 
+    /**
+     * @return array{commandId: string, status: string, output: string}
+     */
+    public function sendDiagnoseCommand(string $instanceId, string $domain, string $portalDomain): array
+    {
+        $commands = $this->submoduleProvisioningAssets->buildDiagnoseCommands($domain, $portalDomain);
+
+        return $this->sendSsmCommandAndCollect($instanceId, $commands);
+    }
+
     public function cleanupServer(string $serverName, ?string $instanceId, string $domain, string $portalDomain): void
     {
         $this->submoduleProvisioningAssets->assertCleanupTargetAvailable();
@@ -215,6 +225,27 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
      */
     private function sendSsmCommandAndWait(string $instanceId, array $commands): string
     {
+        $diagnostics = $this->sendSsmCommandAndCollect($instanceId, $commands);
+
+        if ($diagnostics['status'] !== 'Success') {
+            throw new \RuntimeException(sprintf(
+                'SSM command %s failed with status %s. %s',
+                $diagnostics['commandId'],
+                $diagnostics['status'],
+                $diagnostics['output'],
+            ));
+        }
+
+        return $diagnostics['commandId'];
+    }
+
+    /**
+     * @param list<string> $commands
+     *
+     * @return array{commandId: string, status: string, output: string}
+     */
+    private function sendSsmCommandAndCollect(string $instanceId, array $commands): array
+    {
         try {
             $result = $this->ssm->sendCommand([
                 'DocumentName' => 'AWS-RunShellScript',
@@ -248,7 +279,10 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         return $this->waitForSsmCommand($instanceId, $commandId);
     }
 
-    private function waitForSsmCommand(string $instanceId, string $commandId): string
+    /**
+     * @return array{commandId: string, status: string, output: string}
+     */
+    private function waitForSsmCommand(string $instanceId, string $commandId): array
     {
         for ($poll = 0; $poll < self::SSM_MAX_POLLS; ++$poll) {
             try {
@@ -264,8 +298,16 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
 
             $status = (string) ($invocation->get('Status') ?? 'Unknown');
 
+            $stderr = trim((string) ($invocation->get('StandardErrorContent') ?? ''));
+            $stdout = trim((string) ($invocation->get('StandardOutputContent') ?? ''));
+            $details = trim($stdout."\n".$stderr);
+
             if ($status === 'Success') {
-                return $commandId;
+                return [
+                    'commandId' => $commandId,
+                    'status' => $status,
+                    'output' => $details,
+                ];
             }
 
             if (in_array($status, ['Pending', 'InProgress', 'Delayed'], true)) {
@@ -274,14 +316,18 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
                 continue;
             }
 
-            $stderr = trim((string) ($invocation->get('StandardErrorContent') ?? ''));
-            $stdout = trim((string) ($invocation->get('StandardOutputContent') ?? ''));
-            $details = $stderr !== '' ? $stderr : $stdout;
-
-            throw new \RuntimeException(sprintf('SSM command %s failed with status %s. %s', $commandId, $status, $details));
+            return [
+                'commandId' => $commandId,
+                'status' => $status,
+                'output' => $details,
+            ];
         }
 
-        throw new \RuntimeException(sprintf('Timed out while waiting for SSM command %s.', $commandId));
+        return [
+            'commandId' => $commandId,
+            'status' => 'TimedOut',
+            'output' => sprintf('Timed out while waiting for SSM command %s.', $commandId),
+        ];
     }
 
     private function deleteDnsRecords(string $domain, string $portalDomain): void

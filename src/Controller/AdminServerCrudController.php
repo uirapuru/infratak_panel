@@ -8,6 +8,7 @@ use App\Entity\Server;
 use App\Enum\ServerStatus;
 use App\Enum\ServerStep;
 use App\Message\CreateServerMessage;
+use App\Message\DiagnoseServerMessage;
 use App\Service\Server\ServerCreationService;
 use App\Service\Server\ServerDeletionService;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
@@ -21,6 +22,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\NumberField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
+use EasyCorp\Bundle\EasyAdminBundle\Field\TextareaField;
 use EasyCorp\Bundle\EasyAdminBundle\Filter\ChoiceFilter;
 use EasyCorp\Bundle\EasyAdminBundle\Filter\TextFilter;
 use Doctrine\ORM\EntityManagerInterface;
@@ -89,11 +91,18 @@ final class AdminServerCrudController extends AbstractCrudController
                 'entityId' => $server->getId(),
             ]);
 
+        $diagnoseProvisioning = Action::new('diagnoseProvisioning', 'Diagnose')
+            ->linkToRoute('admin_admin_server_diagnose_provisioning', static fn (Server $server): array => [
+                'entityId' => $server->getId(),
+            ]);
+
         return $actions
             ->disable(Action::EDIT)
             ->add(Crud::PAGE_INDEX, Action::DETAIL)
             ->add('index', $retryProvisioning)
-            ->add(Crud::PAGE_DETAIL, $retryProvisioning);
+            ->add(Crud::PAGE_INDEX, $diagnoseProvisioning)
+            ->add(Crud::PAGE_DETAIL, $retryProvisioning)
+            ->add(Crud::PAGE_DETAIL, $diagnoseProvisioning);
     }
 
     public function configureFields(string $pageName): iterable
@@ -125,6 +134,9 @@ final class AdminServerCrudController extends AbstractCrudController
             DateTimeField::new('startedAt')->hideOnForm(),
             DateTimeField::new('endedAt')->hideOnForm(),
             DateTimeField::new('lastRetryAt')->hideOnForm(),
+            TextField::new('lastDiagnoseStatus')->hideOnForm()->hideOnIndex(),
+            DateTimeField::new('lastDiagnosedAt')->hideOnForm()->hideOnIndex(),
+            TextareaField::new('lastDiagnoseLog')->hideOnForm()->hideOnIndex(),
             NumberField::new('runtimeHours', 'Runtime')
                 ->formatValue(static function ($value): string {
                     if ($value === null) {
@@ -190,6 +202,35 @@ final class AdminServerCrudController extends AbstractCrudController
         $this->entityManager->flush();
         $this->messageBus->dispatch(new CreateServerMessage($server->getId()));
         $this->addFlash('success', 'Provisioning retry queued.');
+
+        return $this->redirect(
+            $this->adminUrlGenerator
+                ->unsetAll()
+                ->setController(self::class)
+                ->setAction(Action::DETAIL)
+                ->setEntityId($server->getId())
+                ->generateUrl()
+        );
+    }
+
+    #[Route('/admin/admin-server/{entityId}/diagnose-provisioning', name: 'admin_admin_server_diagnose_provisioning', methods: ['GET'])]
+    public function diagnoseProvisioning(string $entityId): RedirectResponse
+    {
+        $server = $this->entityManager->getRepository(Server::class)->find($entityId);
+        if (!$server instanceof Server) {
+            $this->addFlash('danger', 'Server not found.');
+
+            return $this->redirect(
+                $this->adminUrlGenerator
+                    ->unsetAll()
+                    ->setController(self::class)
+                    ->setAction(Action::INDEX)
+                    ->generateUrl()
+            );
+        }
+
+        $this->messageBus->dispatch(new DiagnoseServerMessage($server->getId()));
+        $this->addFlash('success', 'Diagnose queued. Refresh this page in a moment to see results.');
 
         return $this->redirect(
             $this->adminUrlGenerator

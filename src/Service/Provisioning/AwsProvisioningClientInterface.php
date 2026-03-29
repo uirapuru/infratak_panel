@@ -23,6 +23,11 @@ interface AwsProvisioningClientInterface
 
     public function sendCertbotCommand(string $instanceId, string $domain, string $portalDomain): string;
 
+    /**
+     * @return array{commandId: string, status: string, output: string}
+     */
+    public function sendDiagnoseCommand(string $instanceId, string $domain, string $portalDomain): array;
+
     public function cleanupServer(string $serverName, ?string $instanceId, string $domain, string $portalDomain): void;
 
     public function terminateInstance(string $instanceId): void;

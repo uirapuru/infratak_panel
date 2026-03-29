@@ -88,6 +88,18 @@ class Server
     #[Groups(['server:read'])]
     private ?\DateTimeImmutable $lastRetryAt = null;
 
+    #[ORM\Column(type: Types::STRING, length: 16, nullable: true)]
+    #[Groups(['server:read'])]
+    private ?string $lastDiagnoseStatus = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[Groups(['server:read'])]
+    private ?string $lastDiagnoseLog = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['server:read'])]
+    private ?\DateTimeImmutable $lastDiagnosedAt = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Groups(['server:read'])]
     private \DateTimeImmutable $createdAt;
@@ -274,6 +286,45 @@ class Server
     public function setLastRetryAt(?\DateTimeImmutable $lastRetryAt): self
     {
         $this->lastRetryAt = $lastRetryAt;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getLastDiagnoseStatus(): ?string
+    {
+        return $this->lastDiagnoseStatus;
+    }
+
+    public function setLastDiagnoseStatus(?string $lastDiagnoseStatus): self
+    {
+        $this->lastDiagnoseStatus = $lastDiagnoseStatus;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getLastDiagnoseLog(): ?string
+    {
+        return $this->lastDiagnoseLog;
+    }
+
+    public function setLastDiagnoseLog(?string $lastDiagnoseLog): self
+    {
+        $this->lastDiagnoseLog = $lastDiagnoseLog;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getLastDiagnosedAt(): ?\DateTimeImmutable
+    {
+        return $this->lastDiagnosedAt;
+    }
+
+    public function setLastDiagnosedAt(?\DateTimeImmutable $lastDiagnosedAt): self
+    {
+        $this->lastDiagnosedAt = $lastDiagnosedAt;
         $this->markUpdated();
 
         return $this;

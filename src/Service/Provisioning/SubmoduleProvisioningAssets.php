@@ -61,6 +61,34 @@ final readonly class SubmoduleProvisioningAssets
         ];
     }
 
+    /**
+     * @return list<string>
+     */
+    public function buildDiagnoseCommands(string $domain, string $portalDomain): array
+    {
+        return [
+            'set -eu',
+            sprintf('DOMAIN=%s', escapeshellarg($domain)),
+            sprintf('PORTAL_DOMAIN=%s', escapeshellarg($portalDomain)),
+            'echo "=== Diagnose start ==="',
+            'echo "[nginx] syntax check"',
+            'sudo nginx -t',
+            'echo "[nginx] service status"',
+            'systemctl is-active nginx',
+            'echo "[nginx] active sites"',
+            'ls -la /etc/nginx/sites-enabled || true',
+            'echo "[nginx] unresolved placeholders"',
+            'if grep -rq "__DOMAIN__\|__PORTAL_DOMAIN__" /etc/nginx/sites-available/ 2>/dev/null; then echo "PLACEHOLDER_FOUND"; grep -rn "__DOMAIN__\|__PORTAL_DOMAIN__" /etc/nginx/sites-available/; exit 1; fi',
+            'echo "[nginx] server_name validation"',
+            'grep -q "server_name $DOMAIN;" /etc/nginx/sites-available/ots_https',
+            'grep -q "server_name $PORTAL_DOMAIN;" /etc/nginx/sites-available/portal',
+            'echo "[cert] letsencrypt files"',
+            'sudo test -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"',
+            'sudo openssl x509 -noout -enddate -in "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"',
+            'echo "=== Diagnose success ==="',
+        ];
+    }
+
     public function assertCleanupTargetAvailable(): void
     {
         $makefileContents = $this->getMakefileContents();
