@@ -5,8 +5,14 @@ services:
       context: .
       dockerfile: docker/php/Dockerfile
     working_dir: /app
+    environment:
+      AWS_PROFILE: ${AWS_PROFILE:-infratak}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      AWS_SDK_LOAD_CONFIG: "1"
+      AWS_EC2_METADATA_DISABLED: "true"
     volumes:
       - ./:/app
+      - ${HOME}/.aws:/root/.aws:ro
       - php_cache:/app/var/cache
       - ./var/log:/var/log/infratak
     depends_on:
@@ -21,8 +27,14 @@ services:
       dockerfile: docker/php/Dockerfile
     working_dir: /app
     command: php bin/console messenger:consume provisioning --time-limit=3600 --memory-limit=256M
+    environment:
+      AWS_PROFILE: ${AWS_PROFILE:-infratak}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      AWS_SDK_LOAD_CONFIG: "1"
+      AWS_EC2_METADATA_DISABLED: "true"
     volumes:
       - ./:/app
+      - ${HOME}/.aws:/root/.aws:ro
       - worker_provisioning_cache:/app/var/cache
       - ./var/log:/var/log/infratak
     depends_on:
@@ -37,8 +49,14 @@ services:
       dockerfile: docker/php/Dockerfile
     working_dir: /app
     command: php bin/console messenger:consume projection --time-limit=3600 --memory-limit=256M
+    environment:
+      AWS_PROFILE: ${AWS_PROFILE:-infratak}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      AWS_SDK_LOAD_CONFIG: "1"
+      AWS_EC2_METADATA_DISABLED: "true"
     volumes:
       - ./:/app
+      - ${HOME}/.aws:/root/.aws:ro
       - worker_projection_cache:/app/var/cache
       - ./var/log:/var/log/infratak
     depends_on:

@@ -72,7 +72,7 @@ final readonly class DeleteServerHandler
         } catch (\Throwable $exception) {
             $this->dispatchProjection(
                 serverId: $message->serverId,
-                status: null,
+                status: ServerStatus::FAILED->value,
                 step: ServerStep::CLEANUP->value,
                 awsInstanceId: null,
                 clearAwsInstanceId: false,
@@ -81,7 +81,7 @@ final readonly class DeleteServerHandler
                 lastError: $exception->getMessage(),
                 clearLastError: false,
                 startedAt: $server->getStartedAt(),
-                endedAt: null,
+                endedAt: new \DateTimeImmutable(),
                 logLevel: 'error',
                 logMessage: 'AWS cleanup failed.',
                 logContext: [

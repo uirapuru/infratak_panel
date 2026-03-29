@@ -125,6 +125,11 @@ class Server
         return $this->id;
     }
 
+    public function __toString(): string
+    {
+        return sprintf('%s (%s)', $this->name, $this->id);
+    }
+
     public function getName(): string
     {
         return $this->name;
