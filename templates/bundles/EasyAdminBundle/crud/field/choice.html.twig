@@ -1,0 +1,11 @@
+{%- set badgeKey = field.value.value|default(field.value|default('')) -%}
+{%- set color = {
+    'creating': 'info',
+    'provisioning': 'info',
+    'cert_pending': 'warning',
+    'ready': 'success',
+    'failed': 'danger',
+    'deleted': 'secondary',
+    'stopped': 'warning'
+}[badgeKey] ?? 'secondary' -%}
+<span class="badge bg-{{ color }}">{{ field.formattedValue|default(field.value)|trans|raw }}</span>

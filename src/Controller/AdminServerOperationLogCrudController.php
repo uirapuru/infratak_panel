@@ -15,6 +15,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
+use EasyCorp\Bundle\EasyAdminBundle\Field\TextareaField;
 use EasyCorp\Bundle\EasyAdminBundle\Filter\EntityFilter;
 
 final class AdminServerOperationLogCrudController extends AbstractCrudController
@@ -27,13 +28,15 @@ final class AdminServerOperationLogCrudController extends AbstractCrudController
     public function configureCrud(Crud $crud): Crud
     {
         return $crud
-            ->setDefaultSort(['createdAt' => 'DESC']);
+            ->setDefaultSort(['createdAt' => 'DESC'])
+            ->setDefaultRowAction(Action::DETAIL);
     }
 
     public function configureActions(Actions $actions): Actions
     {
         return $actions
-            ->disable(Action::NEW, Action::EDIT, Action::DELETE);
+            ->disable(Action::NEW, Action::EDIT, Action::DELETE)
+            ->add(Crud::PAGE_INDEX, Action::DETAIL);
     }
 
     public function configureFilters(Filters $filters): Filters
@@ -45,15 +48,13 @@ final class AdminServerOperationLogCrudController extends AbstractCrudController
     public function configureFields(string $pageName): iterable
     {
         return [
-            IdField::new('id')->hideOnForm(),
+            IdField::new('id')
+                ->hideOnForm(),
             AssociationField::new('server')->setCrudController(AdminServerCrudController::class),
-            TextField::new('server.id', 'Server UUID')
-                ->onlyOnIndex()
-                ->formatValue(static fn ($value): string => (string) $value),
             TextField::new('level'),
             TextField::new('status'),
             TextField::new('step'),
-            TextField::new('message'),
+            TextareaField::new('message')->hideOnIndex(),
             ArrayField::new('contextData')->hideOnIndex(),
             DateTimeField::new('createdAt')->hideOnForm(),
         ];

@@ -1,0 +1,23 @@
+{%- if field.property in ['level', 'status'] -%}
+    {%- set badgeKey = field.value|default('') -%}
+    {%- set color = {
+        'INFO': 'info',
+        'WARNING': 'warning',
+        'ERROR': 'danger',
+        'DEBUG': 'secondary',
+        'creating': 'info',
+        'provisioning': 'info',
+        'cert_pending': 'warning',
+        'ready': 'success',
+        'failed': 'danger',
+        'deleted': 'secondary',
+        'stopped': 'warning'
+    }[badgeKey] ?? 'secondary' -%}
+    <span class="badge bg-{{ color }}">{{ field.formattedValue|default(field.value) }}</span>
+{%- else -%}
+    {% if ea().crud.currentAction == 'detail' %}
+        <span title="{{ field.value }}">{{ field.formattedValue|raw|nl2br }}</span>
+    {% else %}
+        <span title="{{ field.value }}">{{ field.formattedValue|raw }}</span>
+    {% endif %}
+{%- endif -%}

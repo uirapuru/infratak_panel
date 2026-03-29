@@ -84,6 +84,10 @@ class Server
     #[Groups(['server:read'])]
     private ?\DateTimeImmutable $endedAt = null;
 
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['server:read'])]
+    private ?\DateTimeImmutable $lastRetryAt = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Groups(['server:read'])]
     private \DateTimeImmutable $createdAt;
@@ -257,6 +261,19 @@ class Server
     public function setEndedAt(?\DateTimeImmutable $endedAt): self
     {
         $this->endedAt = $endedAt;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getLastRetryAt(): ?\DateTimeImmutable
+    {
+        return $this->lastRetryAt;
+    }
+
+    public function setLastRetryAt(?\DateTimeImmutable $lastRetryAt): self
+    {
+        $this->lastRetryAt = $lastRetryAt;
         $this->markUpdated();
 
         return $this;

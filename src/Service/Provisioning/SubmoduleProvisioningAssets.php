@@ -18,7 +18,7 @@ final readonly class SubmoduleProvisioningAssets
     public function buildProvisioningCommands(string $serverName, string $domain, string $portalDomain): array
     {
         $commands = [
-            'set -euxo pipefail',
+            'set -eux',
             'install -d -m 0755 /home/ubuntu/nginx',
             $this->buildHereDocCommand('/home/ubuntu/provisioning.sh', $this->getProvisioningScript()),
         ];
@@ -28,7 +28,7 @@ final readonly class SubmoduleProvisioningAssets
         }
 
         $commands[] = 'chmod +x /home/ubuntu/provisioning.sh';
-        $commands[] = sprintf('bash -euxo pipefail /home/ubuntu/provisioning.sh %s', escapeshellarg($serverName));
+        $commands[] = sprintf('bash -eux /home/ubuntu/provisioning.sh %s', escapeshellarg($serverName));
 
         return $commands;
     }
@@ -39,7 +39,7 @@ final readonly class SubmoduleProvisioningAssets
     public function buildCertCommands(string $domain, string $portalDomain): array
     {
         return [
-            'set -euxo pipefail',
+            'set -eux',
             sprintf('certbot --nginx -d %s -d %s --non-interactive --agree-tos -m admin@calbal.net', $domain, $portalDomain),
             sprintf(
                 'sed -i %s /etc/nginx/sites-available/ots_https /etc/nginx/sites-available/ots_certificate_enrollment',

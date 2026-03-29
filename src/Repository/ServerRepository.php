@@ -36,4 +36,18 @@ final class ServerRepository extends ServiceEntityRepository
 
         return (int) $queryBuilder->getQuery()->getSingleScalarResult() > 0;
     }
+
+    public function countInProvisioning(): int
+    {
+        return (int) $this->createQueryBuilder('server')
+            ->select('COUNT(server.id)')
+            ->andWhere('server.status != :readyStatus')
+            ->andWhere('server.status != :failedStatus')
+            ->andWhere('server.status != :deletedStatus')
+            ->setParameter('readyStatus', ServerStatus::READY->value)
+            ->setParameter('failedStatus', ServerStatus::FAILED->value)
+            ->setParameter('deletedStatus', ServerStatus::DELETED->value)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

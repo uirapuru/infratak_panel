@@ -111,7 +111,7 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
                     'Key' => 'InstanceIds',
                     'Values' => [$instanceId],
                 ]],
-                'MaxResults' => 1,
+                'MaxResults' => 5,
             ]);
         } catch (AwsException $exception) {
             if ($exception->getAwsErrorCode() === 'AccessDeniedException' || $exception->getStatusCode() === 403) {

@@ -1,0 +1,36 @@
+{% extends '@EasyAdmin/layout.html.twig' %}
+
+{% block content_title %}Dashboard{% endblock %}
+
+{% block main %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; padding: 20px;">
+
+    {# Ready/Running Servers - Green #}
+    <a href="{{ readyUrl }}" style="text-decoration: none; color: inherit; display: block;">
+        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 30px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; transition: transform 0.15s ease, box-shadow 0.15s ease;">
+            <div style="font-size: 14px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Ready & Running</div>
+            <div style="font-size: 56px; font-weight: bold; line-height: 1;">{{ readyCount }}</div>
+            <div style="font-size: 13px; opacity: 0.8; margin-top: 10px;">Fully provisioned servers</div>
+        </div>
+    </a>
+
+    {# Failed Servers - Red #}
+    <a href="{{ failedUrl }}" style="text-decoration: none; color: inherit; display: block;">
+        <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 12px; padding: 30px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; transition: transform 0.15s ease, box-shadow 0.15s ease;">
+            <div style="font-size: 14px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Failed</div>
+            <div style="font-size: 56px; font-weight: bold; line-height: 1;">{{ failedCount }}</div>
+            <div style="font-size: 13px; opacity: 0.8; margin-top: 10px;">Provisioning failed</div>
+        </div>
+    </a>
+
+    {# In Progress Servers - Orange #}
+    <a href="{{ inProgressUrl }}" style="text-decoration: none; color: inherit; display: block;">
+        <div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); border-radius: 12px; padding: 30px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; transition: transform 0.15s ease, box-shadow 0.15s ease;">
+            <div style="font-size: 14px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">In Progress</div>
+            <div style="font-size: 56px; font-weight: bold; line-height: 1;">{{ provisioningCount }}</div>
+            <div style="font-size: 13px; opacity: 0.8; margin-top: 10px;">Hanging or provisioning</div>
+        </div>
+    </a>
+
+</div>
+{% endblock %}
