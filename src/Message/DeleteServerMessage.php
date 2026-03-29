@@ -8,7 +8,6 @@ final class DeleteServerMessage
 {
     public function __construct(
         public readonly string $serverId,
-        public readonly ?string $awsInstanceId,
     ) {
     }
 }

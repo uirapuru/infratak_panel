@@ -10,6 +10,7 @@ use App\Message\ServerProjectionMessage;
 use App\Repository\ServerRepository;
 use App\Service\Provisioning\ProvisioningOrchestrator;
 use App\Service\Provisioning\RetryableProvisioningException;
+use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Envelope;
@@ -17,6 +18,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 
 #[AsMessageHandler]
+#[WithMonologChannel('worker_provisioning')]
 final readonly class CreateServerHandler
 {
     private const int MAX_ATTEMPTS = 5;
@@ -48,9 +50,13 @@ final readonly class CreateServerHandler
                 status: $server->getStatus()->value,
                 step: $server->getStep()->value,
                 awsInstanceId: $server->getAwsInstanceId(),
+                clearAwsInstanceId: false,
                 publicIp: $server->getPublicIp(),
+                clearPublicIp: false,
                 lastError: null,
                 clearLastError: true,
+                startedAt: $server->getStartedAt(),
+                endedAt: $server->getEndedAt(),
                 logLevel: 'info',
                 logMessage: 'Provisioning step processed.',
                 logContext: [
@@ -84,9 +90,13 @@ final readonly class CreateServerHandler
                 status: ServerStatus::FAILED->value,
                 step: $server->getStep()->value,
                 awsInstanceId: $server->getAwsInstanceId(),
+                clearAwsInstanceId: false,
                 publicIp: $server->getPublicIp(),
+                clearPublicIp: false,
                 lastError: $exception->getMessage(),
                 clearLastError: false,
+                startedAt: $server->getStartedAt(),
+                endedAt: $server->getEndedAt(),
                 logLevel: 'error',
                 logMessage: 'Provisioning failed permanently.',
                 logContext: [
@@ -114,9 +124,13 @@ final readonly class CreateServerHandler
             status: $server->getStatus()->value,
             step: $server->getStep()->value,
             awsInstanceId: $server->getAwsInstanceId(),
+            clearAwsInstanceId: false,
             publicIp: $server->getPublicIp(),
+            clearPublicIp: false,
             lastError: $exception->getMessage(),
             clearLastError: false,
+            startedAt: $server->getStartedAt(),
+            endedAt: $server->getEndedAt(),
             logLevel: 'warning',
             logMessage: 'Provisioning retry scheduled.',
             logContext: [
@@ -135,9 +149,13 @@ final readonly class CreateServerHandler
         ?string $status,
         ?string $step,
         ?string $awsInstanceId,
+        bool $clearAwsInstanceId,
         ?string $publicIp,
+        bool $clearPublicIp,
         ?string $lastError,
         bool $clearLastError,
+        ?\DateTimeImmutable $startedAt,
+        ?\DateTimeImmutable $endedAt,
         string $logLevel,
         string $logMessage,
         array $logContext,
@@ -147,9 +165,13 @@ final readonly class CreateServerHandler
             status: $status,
             step: $step,
             awsInstanceId: $awsInstanceId,
+            clearAwsInstanceId: $clearAwsInstanceId,
             publicIp: $publicIp,
+            clearPublicIp: $clearPublicIp,
             lastError: $lastError,
             clearLastError: $clearLastError,
+            startedAt: $startedAt,
+            endedAt: $endedAt,
             logLevel: $logLevel,
             logMessage: $logMessage,
             logContext: $logContext,

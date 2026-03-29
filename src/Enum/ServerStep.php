@@ -12,4 +12,5 @@ enum ServerStep: string
     case WAIT_DNS = 'wait_dns';
     case PROVISION = 'provision';
     case CERT = 'cert';
+    case CLEANUP = 'cleanup';
 }

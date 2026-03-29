@@ -7,8 +7,10 @@ namespace App\Service\Provisioning;
 use App\Entity\Server;
 use App\Enum\ServerStatus;
 use App\Enum\ServerStep;
+use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 
+#[WithMonologChannel('worker_provisioning')]
 final readonly class ProvisioningOrchestrator
 {
     public function __construct(
@@ -32,6 +34,12 @@ final readonly class ProvisioningOrchestrator
     private function handleEc2Step(Server $server): bool
     {
         $this->logger->info('Provisioning step start', ['step' => 'ec2', 'serverId' => $server->getId()]);
+
+        if ($server->getStartedAt() === null) {
+            $server->setStartedAt(new \DateTimeImmutable());
+        }
+
+        $server->setEndedAt(null);
 
         if ($server->getAwsInstanceId() === null) {
             $instanceId = $this->aws->createEc2Instance($server->getName());

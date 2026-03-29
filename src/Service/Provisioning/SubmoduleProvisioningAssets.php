@@ -61,6 +61,15 @@ final readonly class SubmoduleProvisioningAssets
         ];
     }
 
+    public function assertCleanupTargetAvailable(): void
+    {
+        $makefileContents = $this->getMakefileContents();
+
+        if (!preg_match('/^cleanup:\s+dns-delete\s+terminate\s*$/m', $makefileContents)) {
+            throw new \RuntimeException('Provisioning submodule cleanup target is missing or has changed unexpectedly.');
+        }
+    }
+
     private function getProvisioningScript(): string
     {
         $scriptPath = sprintf('%s/%s/provisioning.sh', $this->projectDir, $this->provisioningSubmodulePath);
@@ -68,6 +77,18 @@ final readonly class SubmoduleProvisioningAssets
 
         if ($contents === false) {
             throw new \RuntimeException(sprintf('Unable to read provisioning script from submodule path: %s', $scriptPath));
+        }
+
+        return $contents;
+    }
+
+    private function getMakefileContents(): string
+    {
+        $makefilePath = sprintf('%s/%s/Makefile', $this->projectDir, $this->provisioningSubmodulePath);
+        $contents = @file_get_contents($makefilePath);
+
+        if ($contents === false) {
+            throw new \RuntimeException(sprintf('Unable to read provisioning Makefile from submodule path: %s', $makefilePath));
         }
 
         return $contents;

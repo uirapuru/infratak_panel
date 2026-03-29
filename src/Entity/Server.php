@@ -24,7 +24,6 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: ServerRepository::class)]
 #[ORM\Table(name: 'server')]
-#[ORM\UniqueConstraint(name: 'uniq_server_name', columns: ['name'])]
 #[ORM\HasLifecycleCallbacks]
 #[ApiResource(
     operations: [
@@ -45,7 +44,7 @@ class Server
     #[Groups(['server:read'])]
     private string $id;
 
-    #[ORM\Column(type: Types::STRING, length: 64, unique: true)]
+    #[ORM\Column(type: Types::STRING, length: 64)]
     #[Groups(['server:read'])]
     private string $name;
 
@@ -76,6 +75,14 @@ class Server
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[Groups(['server:read'])]
     private ?string $lastError = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['server:read'])]
+    private ?\DateTimeImmutable $startedAt = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['server:read'])]
+    private ?\DateTimeImmutable $endedAt = null;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Groups(['server:read'])]
@@ -224,9 +231,48 @@ class Server
         return $this->createdAt;
     }
 
+    public function getStartedAt(): ?\DateTimeImmutable
+    {
+        return $this->startedAt;
+    }
+
+    public function setStartedAt(?\DateTimeImmutable $startedAt): self
+    {
+        $this->startedAt = $startedAt;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getEndedAt(): ?\DateTimeImmutable
+    {
+        return $this->endedAt;
+    }
+
+    public function setEndedAt(?\DateTimeImmutable $endedAt): self
+    {
+        $this->endedAt = $endedAt;
+        $this->markUpdated();
+
+        return $this;
+    }
+
     public function getUpdatedAt(): \DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    #[Groups(['server:read'])]
+    public function getRuntimeHours(): ?float
+    {
+        if ($this->startedAt === null) {
+            return null;
+        }
+
+        $end = $this->endedAt ?? new \DateTimeImmutable();
+        $seconds = max(0, $end->getTimestamp() - $this->startedAt->getTimestamp());
+
+        return round($seconds / 3600, 2);
     }
 
     /**

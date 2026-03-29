@@ -8,6 +8,7 @@ use App\Entity\Server;
 use App\Enum\ServerStatus;
 use App\Enum\ServerStep;
 use App\Message\CreateServerMessage;
+use App\Repository\ServerRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -16,6 +17,7 @@ final readonly class ServerCreationService
     public function __construct(
         private EntityManagerInterface $entityManager,
         private MessageBusInterface $messageBus,
+        private ServerRepository $serverRepository,
     ) {
     }
 
@@ -46,6 +48,10 @@ final readonly class ServerCreationService
     {
         $name = strtolower(trim($rawName));
 
+        if ($this->serverRepository->hasActiveServerWithName($name, $server->getId())) {
+            throw new \InvalidArgumentException(sprintf('Active server with name "%s" already exists.', $name));
+        }
+
         $server
             ->setName($name)
             ->setDomain(sprintf('%s.calbal.net', $name))
@@ -54,6 +60,8 @@ final readonly class ServerCreationService
             ->setStep(ServerStep::EC2)
             ->setAwsInstanceId(null)
             ->setPublicIp(null)
+            ->setStartedAt(null)
+            ->setEndedAt(null)
             ->setLastError(null);
     }
 }

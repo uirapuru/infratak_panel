@@ -7,9 +7,7 @@ namespace App\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Server;
-use App\Message\DeleteServerMessage;
-use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Messenger\MessageBusInterface;
+use App\Service\Server\ServerDeletionService;
 
 /**
  * @implements ProcessorInterface<Server, void>
@@ -17,8 +15,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 final readonly class DeleteServerProcessor implements ProcessorInterface
 {
     public function __construct(
-        private EntityManagerInterface $entityManager,
-        private MessageBusInterface $messageBus,
+        private ServerDeletionService $serverDeletionService,
     ) {
     }
 
@@ -28,9 +25,6 @@ final readonly class DeleteServerProcessor implements ProcessorInterface
             throw new \InvalidArgumentException('Invalid server resource for deletion.');
         }
 
-        $this->messageBus->dispatch(new DeleteServerMessage($data->getId(), $data->getAwsInstanceId()));
-
-        $this->entityManager->remove($data);
-        $this->entityManager->flush();
+        $this->serverDeletionService->queueCleanup($data);
     }
 }

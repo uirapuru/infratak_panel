@@ -119,11 +119,34 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         return $this->sendSsmCommandAndWait($instanceId, $commands);
     }
 
+    public function cleanupServer(string $serverName, ?string $instanceId, string $domain, string $portalDomain): void
+    {
+        $this->submoduleProvisioningAssets->assertCleanupTargetAvailable();
+        $this->deleteDnsRecords($domain, $portalDomain);
+
+        $cleanupInstanceId = $instanceId;
+        if ($cleanupInstanceId === null || $cleanupInstanceId === '') {
+            $cleanupInstanceId = $this->findActiveInstanceIdByName($serverName);
+        }
+
+        if ($cleanupInstanceId === null) {
+            return;
+        }
+
+        $this->terminateInstance($cleanupInstanceId);
+    }
+
     public function terminateInstance(string $instanceId): void
     {
-        $this->ec2->terminateInstances([
-            'InstanceIds' => [$instanceId],
-        ]);
+        try {
+            $this->ec2->terminateInstances([
+                'InstanceIds' => [$instanceId],
+            ]);
+        } catch (AwsException $exception) {
+            if (!$this->isIgnorableTerminateException($exception)) {
+                throw $exception;
+            }
+        }
     }
 
     /**
@@ -186,5 +209,100 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         }
 
         throw new \RuntimeException(sprintf('Timed out while waiting for SSM command %s.', $commandId));
+    }
+
+    private function deleteDnsRecords(string $domain, string $portalDomain): void
+    {
+        $changes = [];
+
+        foreach ([$domain, $portalDomain] as $recordName) {
+            $recordSet = $this->findARecordSet($recordName);
+            if ($recordSet === null) {
+                continue;
+            }
+
+            $changes[] = [
+                'Action' => 'DELETE',
+                'ResourceRecordSet' => $recordSet,
+            ];
+        }
+
+        if ($changes === []) {
+            return;
+        }
+
+        $this->route53->changeResourceRecordSets([
+            'HostedZoneId' => $this->hostedZoneId,
+            'ChangeBatch' => [
+                'Changes' => $changes,
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function findARecordSet(string $recordName): ?array
+    {
+        $fqdn = sprintf('%s.', rtrim($recordName, '.'));
+
+        $result = $this->route53->listResourceRecordSets([
+            'HostedZoneId' => $this->hostedZoneId,
+            'StartRecordName' => $fqdn,
+            'StartRecordType' => 'A',
+            'MaxItems' => '1',
+        ]);
+
+        $recordSets = $result->get('ResourceRecordSets');
+        $recordSet = is_array($recordSets) ? ($recordSets[0] ?? null) : null;
+
+        if (!is_array($recordSet)) {
+            return null;
+        }
+
+        if (($recordSet['Name'] ?? null) !== $fqdn || ($recordSet['Type'] ?? null) !== 'A') {
+            return null;
+        }
+
+        return $recordSet;
+    }
+
+    private function findActiveInstanceIdByName(string $serverName): ?string
+    {
+        $result = $this->ec2->describeInstances([
+            'Filters' => [
+                ['Name' => 'tag:Name', 'Values' => [$serverName]],
+                ['Name' => 'instance-state-name', 'Values' => ['pending', 'running', 'stopping', 'stopped']],
+            ],
+        ]);
+
+        $reservations = $result->get('Reservations');
+        if (!is_array($reservations)) {
+            return null;
+        }
+
+        foreach ($reservations as $reservation) {
+            if (!is_array($reservation) || !isset($reservation['Instances']) || !is_array($reservation['Instances'])) {
+                continue;
+            }
+
+            foreach ($reservation['Instances'] as $instance) {
+                if (!is_array($instance)) {
+                    continue;
+                }
+
+                $instanceId = $instance['InstanceId'] ?? null;
+                if (is_string($instanceId) && $instanceId !== '') {
+                    return $instanceId;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function isIgnorableTerminateException(AwsException $exception): bool
+    {
+        return in_array($exception->getAwsErrorCode(), ['InvalidInstanceID.NotFound', 'IncorrectInstanceState'], true);
     }
 }

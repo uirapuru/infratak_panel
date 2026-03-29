@@ -16,5 +16,7 @@ interface AwsProvisioningClientInterface
 
     public function sendCertbotCommand(string $instanceId, string $domain, string $portalDomain): string;
 
+    public function cleanupServer(string $serverName, ?string $instanceId, string $domain, string $portalDomain): void;
+
     public function terminateInstance(string $instanceId): void;
 }

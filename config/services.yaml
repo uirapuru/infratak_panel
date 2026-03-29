@@ -25,6 +25,18 @@ services:
     App\:
         resource: '../src/'
 
+    monolog.formatter.worker_pretty:
+        class: Monolog\Formatter\LineFormatter
+        arguments:
+            $format: "[%%datetime%%] %%channel%%.%%level_name%% %%message%% %%context%%\n"
+            $dateFormat: 'Y-m-d H:i:s'
+            $allowInlineLineBreaks: true
+            $ignoreEmptyContextAndExtra: true
+            $includeStacktraces: true
+        calls:
+            - [setJsonPrettyPrint, [true]]
+            - [setBasePath, ['%kernel.project_dir%']]
+
     Aws\Sdk:
         arguments:
             -

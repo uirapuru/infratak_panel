@@ -11,5 +11,6 @@ enum ServerStatus: string
     case CERT_PENDING = 'cert_pending';
     case READY = 'ready';
     case FAILED = 'failed';
+    case DELETED = 'deleted';
     case STOPPED = 'stopped';
 }
