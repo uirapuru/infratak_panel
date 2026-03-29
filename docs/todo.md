@@ -86,3 +86,10 @@ Cel:
 
 15. Dodać prosty healthcheck aplikacyjny workerów, nie tylko odczyt consumer count z RabbitMQ.
 - Sam consumer count nie odróżnia workera zdrowego od workera, który wisi logicznie.
+
+## MediaMTX po provisioningu
+
+16. Dodać ograniczenie liczby nadawanych streamów i oglądających (viewerów) w MediaMTX po provisioningu.
+- Limity mają być konfigurowalne per serwer/plan.
+- Provisioning powinien zapisywać konfigurację limitów w plikach MediaMTX.
+- Przekroczenie limitu powinno być widoczne w logach operacyjnych i łatwe do diagnozy z panelu.

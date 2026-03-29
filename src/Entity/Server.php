@@ -88,6 +88,10 @@ class Server
     #[Groups(['server:read'])]
     private ?\DateTimeImmutable $lastRetryAt = null;
 
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['server:read'])]
+    private ?\DateTimeImmutable $sleepAt = null;
+
     #[ORM\Column(type: Types::STRING, length: 16, nullable: true)]
     #[Groups(['server:read'])]
     private ?string $lastDiagnoseStatus = null;
@@ -286,6 +290,19 @@ class Server
     public function setLastRetryAt(?\DateTimeImmutable $lastRetryAt): self
     {
         $this->lastRetryAt = $lastRetryAt;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getSleepAt(): ?\DateTimeImmutable
+    {
+        return $this->sleepAt;
+    }
+
+    public function setSleepAt(?\DateTimeImmutable $sleepAt): self
+    {
+        $this->sleepAt = $sleepAt;
         $this->markUpdated();
 
         return $this;

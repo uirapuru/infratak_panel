@@ -28,6 +28,7 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
   - publicIp
   - lastError
   - lastRetryAt
+  - sleepAt
   - lastDiagnoseStatus
   - lastDiagnoseLog
   - lastDiagnosedAt
@@ -67,11 +68,13 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
   - CreateServerMessage
   - DeleteServerMessage
   - DiagnoseServerMessage
+  - StopServerMessage
   - ServerProjectionMessage
 - Handlers:
   - CreateServerHandler
   - DeleteServerHandler
   - DiagnoseServerHandler
+  - StopServerHandler
   - ServerProjectionHandler
 - Transport:
   - provisioning AMQP transport for AWS orchestration
@@ -102,6 +105,7 @@ Rules respected in implementation:
 
 ### AWS Integration
 - EC2:
+  - stopInstances
   - runInstances
   - describeInstances
   - terminateInstances
@@ -135,6 +139,8 @@ Rules respected in implementation:
   - dashboard cards for ready, failed, and in-progress servers
   - dashboard worker cards for provisioning/projection consumer visibility
   - server list/details/edit/delete
+  - optional sleepAt datetime may be provided on create and is visible on index/detail
+  - if sleepAt is set, panel schedules a future StopServerMessage for AWS stop
   - creating a new server from EasyAdmin queues provisioning via ServerCreationService
   - create form should expose only user-provided input such as name; system fields like lastError/status/step are managed asynchronously
   - enum fields such as status and step are rendered as badges in admin

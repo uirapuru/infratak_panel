@@ -44,9 +44,11 @@ final class ServerRepository extends ServiceEntityRepository
             ->andWhere('server.status != :readyStatus')
             ->andWhere('server.status != :failedStatus')
             ->andWhere('server.status != :deletedStatus')
+            ->andWhere('server.status != :stoppedStatus')
             ->setParameter('readyStatus', ServerStatus::READY->value)
             ->setParameter('failedStatus', ServerStatus::FAILED->value)
             ->setParameter('deletedStatus', ServerStatus::DELETED->value)
+            ->setParameter('stoppedStatus', ServerStatus::STOPPED->value)
             ->getQuery()
             ->getSingleScalarResult();
     }

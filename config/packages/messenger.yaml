@@ -30,6 +30,7 @@ framework:
             App\Message\CreateServerMessage: provisioning
             App\Message\DeleteServerMessage: provisioning
             App\Message\DiagnoseServerMessage: provisioning
+            App\Message\StopServerMessage: provisioning
             App\Message\ServerProjectionMessage: projection
 
 # when@test:

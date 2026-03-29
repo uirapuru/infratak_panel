@@ -130,6 +130,9 @@ final class AdminServerCrudController extends AbstractCrudController
             TextField::new('awsInstanceId')->hideOnForm(),
             TextField::new('publicIp')->hideOnForm(),
             TextField::new('portalDomain')->hideOnForm()->hideOnIndex(),
+            DateTimeField::new('sleepAt', 'Sleep At')
+                ->setRequired(false)
+                ->setTimezone('Europe/Warsaw'),
             TextField::new('lastError')->hideOnForm()->hideOnIndex(),
             DateTimeField::new('startedAt')->hideOnForm(),
             DateTimeField::new('endedAt')->hideOnForm(),

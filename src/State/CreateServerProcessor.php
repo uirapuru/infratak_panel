@@ -26,6 +26,6 @@ final readonly class CreateServerProcessor implements ProcessorInterface
             throw new \InvalidArgumentException('Invalid input for server creation.');
         }
 
-        return $this->serverCreationService->createFromName($data->name);
+        return $this->serverCreationService->createFromName($data->name, $data->sleepAt);
     }
 }

@@ -14,6 +14,8 @@ RUN apt-get update \
     && docker-php-ext-enable amqp \
     && rm -rf /var/lib/apt/lists/*
 
+RUN echo 'date.timezone = Europe/Warsaw' >> /usr/local/etc/php/conf.d/timezone.ini
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY docker/php/entrypoint.sh /usr/local/bin/infratak-entrypoint
 

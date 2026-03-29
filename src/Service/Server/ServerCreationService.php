@@ -8,9 +8,12 @@ use App\Entity\Server;
 use App\Enum\ServerStatus;
 use App\Enum\ServerStep;
 use App\Message\CreateServerMessage;
+use App\Message\StopServerMessage;
 use App\Repository\ServerRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 
 final readonly class ServerCreationService
 {
@@ -21,15 +24,17 @@ final readonly class ServerCreationService
     ) {
     }
 
-    public function createFromName(string $rawName): Server
+    public function createFromName(string $rawName, ?\DateTimeImmutable $sleepAt = null): Server
     {
         $server = new Server();
+        $server->setSleepAt($sleepAt);
         $this->initializeForProvisioning($server, $rawName);
 
         $this->entityManager->persist($server);
         $this->entityManager->flush();
 
         $this->messageBus->dispatch(new CreateServerMessage($server->getId()));
+        $this->scheduleSleepIfNeeded($server);
 
         return $server;
     }
@@ -42,6 +47,7 @@ final readonly class ServerCreationService
         $this->entityManager->flush();
 
         $this->messageBus->dispatch(new CreateServerMessage($server->getId()));
+        $this->scheduleSleepIfNeeded($server);
     }
 
     private function initializeForProvisioning(Server $server, string $rawName): void
@@ -63,5 +69,21 @@ final readonly class ServerCreationService
             ->setStartedAt(null)
             ->setEndedAt(null)
             ->setLastError(null);
+    }
+
+    private function scheduleSleepIfNeeded(Server $server): void
+    {
+        $sleepAt = $server->getSleepAt();
+        if ($sleepAt === null) {
+            return;
+        }
+
+        $delayMs = max(0, ($sleepAt->getTimestamp() - time()) * 1000);
+        $envelope = new Envelope(
+            new StopServerMessage($server->getId(), $sleepAt),
+            [new DelayStamp($delayMs)],
+        );
+
+        $this->messageBus->dispatch($envelope);
     }
 }

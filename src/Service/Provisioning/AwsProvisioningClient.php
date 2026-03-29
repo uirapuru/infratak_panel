@@ -207,6 +207,29 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         $this->terminateInstance($cleanupInstanceId);
     }
 
+    public function stopInstance(string $instanceId): void
+    {
+        $state = $this->getInstanceState($instanceId);
+
+        if (in_array($state, ['stopped', 'stopping'], true)) {
+            return;
+        }
+
+        if (!in_array($state, ['pending', 'running'], true)) {
+            throw new \RuntimeException(sprintf('EC2 instance %s cannot be stopped from state "%s".', $instanceId, $state));
+        }
+
+        try {
+            $this->ec2->stopInstances([
+                'InstanceIds' => [$instanceId],
+            ]);
+        } catch (AwsException $exception) {
+            if (!$this->isIgnorableStopException($exception)) {
+                throw $exception;
+            }
+        }
+    }
+
     public function terminateInstance(string $instanceId): void
     {
         try {
@@ -418,6 +441,31 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         }
 
         return null;
+    }
+
+    private function getInstanceState(string $instanceId): string
+    {
+        $result = $this->ec2->describeInstances([
+            'InstanceIds' => [$instanceId],
+        ]);
+
+        $reservations = $result->get('Reservations');
+        $instance = is_array($reservations) ? ($reservations[0]['Instances'][0] ?? null) : null;
+        if (!is_array($instance)) {
+            throw new \RuntimeException(sprintf('EC2 instance %s was not found.', $instanceId));
+        }
+
+        $state = $instance['State']['Name'] ?? null;
+        if (!is_string($state) || $state === '') {
+            throw new \RuntimeException(sprintf('EC2 instance %s has unknown state.', $instanceId));
+        }
+
+        return $state;
+    }
+
+    private function isIgnorableStopException(AwsException $exception): bool
+    {
+        return in_array($exception->getAwsErrorCode(), ['IncorrectInstanceState'], true);
     }
 
     private function isIgnorableTerminateException(AwsException $exception): bool

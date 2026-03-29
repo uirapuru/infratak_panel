@@ -4,9 +4,27 @@ services:
     ports:
       - "8080:80"
 
+  php:
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
+      TZ: Europe/Warsaw
+
+  worker_provisioning:
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
+
+  worker_projection:
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
+
   mariadb:
     ports:
       - "3306:3306"
+    environment:
+      TZ: Europe/Warsaw
 
   rabbitmq:
     ports:

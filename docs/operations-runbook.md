@@ -15,7 +15,7 @@ Biznesowe kolejki AMQP są dwie:
 
 Uwagi:
 
-* `CreateServerMessage`, `DeleteServerMessage` i `DiagnoseServerMessage` używają transportu `provisioning`
+* `CreateServerMessage`, `DeleteServerMessage`, `DiagnoseServerMessage` i `StopServerMessage` używają transportu `provisioning`
 * `ServerProjectionMessage` używa transportu `projection`
 * dodatkowe kolejki typu `delay_*` mogą pojawiać się czasowo przez retry Symfony Messenger i nie są osobnymi kolejkami domenowymi
 
@@ -134,7 +134,25 @@ Wtedy prawda jest w logach workera, nie w samej kolejce.
 
 ---
 
-## 6. Statusy i ich znaczenie operacyjne
+## 6. Aktualny flow scheduled sleep
+
+1. podczas tworzenia serwera można ustawić `sleepAt`
+2. jeśli `sleepAt` jest puste, nic nie jest planowane
+3. jeśli `sleepAt` jest ustawione, panel dispatchuje `StopServerMessage` z opóźnieniem do tej daty
+4. w chwili osiągnięcia `sleepAt` worker provisioning wykonuje `EC2 StopInstances`
+5. wynik końcowy:
+   * sukces: `status = stopped`, `step = none`
+   * porażka: status pozostaje bez zmiany, w `lastError` i operation log pojawia się błąd
+
+Uwagi:
+
+* to jest stop instancji EC2, nie delete i nie terminate
+* rekord serwera pozostaje w bazie
+* jeśli wiadomość dotrze zbyt wcześnie albo instancja nie ma jeszcze `awsInstanceId`, worker ponowi próbę
+
+---
+
+## 7. Statusy i ich znaczenie operacyjne
 
 ### Statusy
 
@@ -145,7 +163,7 @@ Wtedy prawda jest w logach workera, nie w samej kolejce.
 * `ready` — serwer gotowy
 * `failed` — flow zakończył się błędem
 * `deleted` — rekord logicznie usunięty / cleanup zakończony
-* `stopped` — status rezerwowy na przyszłość
+* `stopped` — instancja została zatrzymana na AWS, nie została usunięta ani terminowana
 
 ### Kroki
 

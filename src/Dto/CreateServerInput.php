@@ -12,4 +12,7 @@ final class CreateServerInput
     #[Assert\Length(min: 3, max: 32)]
     #[Assert\Regex(pattern: '/^[a-z0-9-]+$/', message: 'Name can contain only lowercase letters, digits and dashes.')]
     public string $name;
+
+    #[Assert\Type(\DateTimeImmutable::class)]
+    public ?\DateTimeImmutable $sleepAt = null;
 }
