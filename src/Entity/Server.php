@@ -15,6 +15,8 @@ use App\Enum\ServerStep;
 use App\Repository\ServerRepository;
 use App\State\CreateServerProcessor;
 use App\State\DeleteServerProcessor;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
@@ -83,6 +85,12 @@ class Server
     #[Groups(['server:read'])]
     private \DateTimeImmutable $updatedAt;
 
+    /**
+     * @var Collection<int, ServerOperationLog>
+     */
+    #[ORM\OneToMany(mappedBy: 'server', targetEntity: ServerOperationLog::class, orphanRemoval: true)]
+    private Collection $operationLogs;
+
     public function __construct()
     {
         $this->id = Uuid::v7()->toRfc4122();
@@ -91,6 +99,7 @@ class Server
         $this->updatedAt = $now;
         $this->status = ServerStatus::CREATING;
         $this->step = ServerStep::EC2;
+        $this->operationLogs = new ArrayCollection();
     }
 
     #[ORM\PreUpdate]
@@ -218,5 +227,13 @@ class Server
     public function getUpdatedAt(): \DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    /**
+     * @return Collection<int, ServerOperationLog>
+     */
+    public function getOperationLogs(): Collection
+    {
+        return $this->operationLogs;
     }
 }

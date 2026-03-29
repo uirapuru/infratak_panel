@@ -1,17 +1,35 @@
 framework:
     messenger:
         transports:
-            async:
-                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+            provisioning:
+                dsn: '%env(MESSENGER_PROVISIONING_TRANSPORT_DSN)%'
+                options:
+                    exchange:
+                        name: infratak.provisioning
+                    queues:
+                        infratak.provisioning: ~
                 retry_strategy:
                     max_retries: 5
                     delay: 10000
                     multiplier: 1.5
                     max_delay: 30000
+            projection:
+                dsn: '%env(MESSENGER_PROJECTION_TRANSPORT_DSN)%'
+                options:
+                    exchange:
+                        name: infratak.projection
+                    queues:
+                        infratak.projection: ~
+                retry_strategy:
+                    max_retries: 5
+                    delay: 2000
+                    multiplier: 2
+                    max_delay: 10000
 
         routing:
-            App\Message\CreateServerMessage: async
-            App\Message\DeleteServerMessage: async
+            App\Message\CreateServerMessage: provisioning
+            App\Message\DeleteServerMessage: provisioning
+            App\Message\ServerProjectionMessage: projection
 
 # when@test:
 #    framework:

@@ -8,9 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Dto\CreateServerInput;
 use App\Entity\Server;
-use App\Message\CreateServerMessage;
-use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Messenger\MessageBusInterface;
+use App\Service\Server\ServerCreationService;
 
 /**
  * @implements ProcessorInterface<CreateServerInput, Server>
@@ -18,8 +16,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 final readonly class CreateServerProcessor implements ProcessorInterface
 {
     public function __construct(
-        private EntityManagerInterface $entityManager,
-        private MessageBusInterface $messageBus,
+        private ServerCreationService $serverCreationService,
     ) {
     }
 
@@ -29,18 +26,6 @@ final readonly class CreateServerProcessor implements ProcessorInterface
             throw new \InvalidArgumentException('Invalid input for server creation.');
         }
 
-        $name = strtolower(trim($data->name));
-
-        $server = (new Server())
-            ->setName($name)
-            ->setDomain(sprintf('%s.calbal.net', $name))
-            ->setPortalDomain(sprintf('portal.%s.calbal.net', $name));
-
-        $this->entityManager->persist($server);
-        $this->entityManager->flush();
-
-        $this->messageBus->dispatch(new CreateServerMessage($server->getId()));
-
-        return $server;
+        return $this->serverCreationService->createFromName($data->name);
     }
 }

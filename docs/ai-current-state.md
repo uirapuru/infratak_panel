@@ -45,26 +45,35 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
 
 ### Processor Layer
 - CreateServerProcessor:
-  - validates and normalizes input
-  - creates Server row
-  - dispatches async CreateServerMessage
+  - validates input
+  - delegates to shared ServerCreationService
+  - creates Server row and dispatches async CreateServerMessage
 - DeleteServerProcessor:
   - dispatches async DeleteServerMessage
   - removes row
+
+### Shared Create Use Case
+- ServerCreationService is the single creation entry point for both API and EasyAdmin:
+  - initializes canonical values (name/domain/portalDomain/status/step)
+  - persists Server
+  - dispatches CreateServerMessage to provisioning queue
 
 ### Async Layer (Messenger)
 - Message classes:
   - CreateServerMessage
   - DeleteServerMessage
+  - ServerProjectionMessage
 - Handlers:
   - CreateServerHandler
   - DeleteServerHandler
+  - ServerProjectionHandler
 - Transport:
-  - async AMQP transport configured (RabbitMQ DSN in env)
+  - provisioning AMQP transport for AWS orchestration
+  - projection AMQP transport for status/log projection updates
 - Retry behavior:
   - max attempts: 5
   - delay range: 10s-30s for orchestration retries
-  - failure state persisted in DB
+  - projection worker persists status and logs in DB
 
 ### Provisioning Orchestration
 ProvisioningOrchestrator executes step-by-step flow:
@@ -91,7 +100,19 @@ Rules respected in implementation:
   - UPSERT A records for main and portal domains
 - SSM:
   - sendCommand with AWS-RunShellScript
+  - provisioning and cert steps wait for real SSM completion before progressing
   - used for provisioning and certbot
+
+### Provisioning Submodule
+- Git submodule added at:
+  - infra/provisioning
+- Worker provisioning uses submodule assets as source of truth for:
+  - provisioning.sh
+  - nginx/ templates
+- Execution model:
+  - local read/render inside Symfony worker
+  - remote execution through AWS SSM
+- This keeps the orchestrator on SSM while reusing the provisioning repository contents.
 
 ### Admin and Operations
 - Health endpoint:
@@ -99,7 +120,20 @@ Rules respected in implementation:
 - EasyAdmin:
   - /admin dashboard
   - server list/details/edit/delete
+  - creating a new server from EasyAdmin queues provisioning via ServerCreationService
+  - create form should expose only user-provided input such as name; system fields like lastError/status/step are managed asynchronously
+  - enum fields such as status and step are rendered in admin as scalar values
   - action: retry provisioning (queues CreateServerMessage)
+  - operation log screen in admin menu
+
+### Projection Log Model
+- New table/entity: server_operation_log
+- Each provisioning/projection event stores:
+  - level
+  - status/step snapshot
+  - message
+  - JSON context
+  - timestamp
 
 ### Docker Setup
 Configured services:
@@ -107,6 +141,8 @@ Configured services:
 - nginx
 - mariadb
 - rabbitmq
+- worker_provisioning
+- worker_projection
 
 Main files:
 - compose.yaml
@@ -125,10 +161,14 @@ Main files:
   - AWS_ROUTE53_HOSTED_ZONE_ID
   - AWS_INSTANCE_PROFILE_NAME (if needed)
 - Ensure worker is running to process async messages.
+- For full async flow run dedicated workers:
+  - docker compose up -d worker_provisioning worker_projection
+- Before opening /admin on a fresh environment, run migrations:
+  - docker compose exec php php bin/console doctrine:migrations:migrate --no-interaction
 
 ## Known Gaps / Next Work
 - Add automated tests (unit + integration + e2e flow checks)
 - Harden idempotency for each external step
 - Add richer status observability and structured logs
-- Add explicit wait/verification for SSM command completion when needed
 - Add CI pipeline for lint/test/migration checks
+- Decide whether to continue evolving the submodule through SSM adapters or migrate more of its Makefile logic into native Symfony services

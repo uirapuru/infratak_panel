@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace App\Service\Provisioning;
 
 use Aws\Ec2\Ec2Client;
+use Aws\Exception\AwsException;
 use Aws\Route53\Route53Client;
 use Aws\Ssm\SsmClient;
 
 final readonly class AwsProvisioningClient implements AwsProvisioningClientInterface
 {
+    private const int SSM_POLL_SLEEP_SECONDS = 5;
+    private const int SSM_MAX_POLLS = 60;
+
     public function __construct(
         private Ec2Client $ec2,
         private Route53Client $route53,
         private SsmClient $ssm,
+        private SubmoduleProvisioningAssets $submoduleProvisioningAssets,
         private string $amiId,
         private string $instanceType,
         private string $hostedZoneId,
@@ -31,7 +36,7 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
             'TagSpecifications' => [[
                 'ResourceType' => 'instance',
                 'Tags' => [
-                    ['Key' => 'Name', 'Value' => sprintf('infratak-%s', $serverName)],
+                    ['Key' => 'Name', 'Value' => $serverName],
                 ],
             ]],
         ];
@@ -101,32 +106,17 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
 
     public function sendProvisioningCommand(string $instanceId, string $domain, string $portalDomain): string
     {
-        $commands = [
-            'set -euxo pipefail',
-            'apt-get update',
-            'DEBIAN_FRONTEND=noninteractive apt-get install -y nginx',
-            sprintf("cat > /etc/nginx/sites-available/infratak.conf <<'EOF'\nserver {\n  listen 80;\n  server_name %s %s;\n  location / { return 200 'infratak'; add_header Content-Type text/plain; }\n}\nEOF", $domain, $portalDomain),
-            'ln -sf /etc/nginx/sites-available/infratak.conf /etc/nginx/sites-enabled/infratak.conf',
-            'rm -f /etc/nginx/sites-enabled/default',
-            'nginx -t',
-            'systemctl enable nginx',
-            'systemctl restart nginx',
-        ];
+        $serverName = explode('.', $domain, 2)[0];
+        $commands = $this->submoduleProvisioningAssets->buildProvisioningCommands($serverName, $domain, $portalDomain);
 
-        return $this->sendSsmCommand($instanceId, $commands);
+        return $this->sendSsmCommandAndWait($instanceId, $commands);
     }
 
     public function sendCertbotCommand(string $instanceId, string $domain, string $portalDomain): string
     {
-        $commands = [
-            'set -euxo pipefail',
-            'apt-get update',
-            'DEBIAN_FRONTEND=noninteractive apt-get install -y certbot python3-certbot-nginx',
-            sprintf('certbot --nginx -d %s -d %s --non-interactive --agree-tos -m admin@calbal.net', $domain, $portalDomain),
-            'systemctl reload nginx',
-        ];
+        $commands = $this->submoduleProvisioningAssets->buildCertCommands($domain, $portalDomain);
 
-        return $this->sendSsmCommand($instanceId, $commands);
+        return $this->sendSsmCommandAndWait($instanceId, $commands);
     }
 
     public function terminateInstance(string $instanceId): void
@@ -136,7 +126,10 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         ]);
     }
 
-    private function sendSsmCommand(string $instanceId, array $commands): string
+    /**
+     * @param list<string> $commands
+     */
+    private function sendSsmCommandAndWait(string $instanceId, array $commands): string
     {
         $result = $this->ssm->sendCommand([
             'DocumentName' => 'AWS-RunShellScript',
@@ -156,6 +149,42 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
             throw new \RuntimeException('SSM command was not accepted.');
         }
 
-        return $commandId;
+        return $this->waitForSsmCommand($instanceId, $commandId);
+    }
+
+    private function waitForSsmCommand(string $instanceId, string $commandId): string
+    {
+        for ($poll = 0; $poll < self::SSM_MAX_POLLS; ++$poll) {
+            try {
+                $invocation = $this->ssm->getCommandInvocation([
+                    'CommandId' => $commandId,
+                    'InstanceId' => $instanceId,
+                ]);
+            } catch (AwsException $exception) {
+                sleep(self::SSM_POLL_SLEEP_SECONDS);
+
+                continue;
+            }
+
+            $status = (string) ($invocation->get('Status') ?? 'Unknown');
+
+            if ($status === 'Success') {
+                return $commandId;
+            }
+
+            if (in_array($status, ['Pending', 'InProgress', 'Delayed'], true)) {
+                sleep(self::SSM_POLL_SLEEP_SECONDS);
+
+                continue;
+            }
+
+            $stderr = trim((string) ($invocation->get('StandardErrorContent') ?? ''));
+            $stdout = trim((string) ($invocation->get('StandardOutputContent') ?? ''));
+            $details = $stderr !== '' ? $stderr : $stdout;
+
+            throw new \RuntimeException(sprintf('SSM command %s failed with status %s. %s', $commandId, $status, $details));
+        }
+
+        throw new \RuntimeException(sprintf('Timed out while waiting for SSM command %s.', $commandId));
     }
 }

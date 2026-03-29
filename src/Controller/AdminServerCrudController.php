@@ -6,13 +6,16 @@ namespace App\Controller;
 
 use App\Entity\Server;
 use App\Message\CreateServerMessage;
+use App\Service\Server\ServerCreationService;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
 use EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
+use EasyCorp\Bundle\EasyAdminBundle\Field\CollectionField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -20,6 +23,7 @@ final class AdminServerCrudController extends AbstractCrudController
 {
     public function __construct(
         private readonly MessageBusInterface $messageBus,
+        private readonly ServerCreationService $serverCreationService,
     ) {
     }
 
@@ -43,16 +47,33 @@ final class AdminServerCrudController extends AbstractCrudController
         return [
             IdField::new('id')->hideOnForm(),
             TextField::new('name'),
-            TextField::new('domain'),
-            TextField::new('portalDomain'),
-            TextField::new('status'),
-            TextField::new('step'),
-            TextField::new('awsInstanceId'),
-            TextField::new('publicIp'),
-            TextField::new('lastError')->hideOnIndex(),
+            TextField::new('domain')->hideOnForm(),
+            TextField::new('portalDomain')->hideOnForm(),
+            TextField::new('status')
+                ->formatValue(static fn ($value): string => $value?->value ?? '')
+                ->hideOnForm(),
+            TextField::new('step')
+                ->formatValue(static fn ($value): string => $value?->value ?? '')
+                ->hideOnForm(),
+            TextField::new('awsInstanceId')->hideOnForm(),
+            TextField::new('publicIp')->hideOnForm(),
+            TextField::new('lastError')->hideOnIndex()->hideOnForm(),
             DateTimeField::new('createdAt')->hideOnForm(),
             DateTimeField::new('updatedAt')->hideOnForm(),
+            CollectionField::new('operationLogs')->onlyOnDetail(),
         ];
+    }
+
+    public function persistEntity(EntityManagerInterface $entityManager, $entityInstance): void
+    {
+        if (!$entityInstance instanceof Server) {
+            parent::persistEntity($entityManager, $entityInstance);
+
+            return;
+        }
+
+        $this->serverCreationService->queueProvisioningForExisting($entityInstance);
+        $this->addFlash('success', 'Server created and provisioning queued.');
     }
 
     public function retryProvisioning(AdminContext $context): RedirectResponse

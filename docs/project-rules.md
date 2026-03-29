@@ -15,8 +15,14 @@ It is not a CRUD-first app and not a dashboard-first app.
 - API Platform: transport and input/output only.
 - Processor: input handling, state initialization, message dispatch.
 - Application/Provisioning Service: orchestration logic.
-- Handler: execution coordination, retries, persistence updates.
+- Provisioning Handler: AWS execution coordination and retry scheduling.
+- Projection Handler: persistence updates (status/log read model).
 - AWS Client layer: all external AWS interactions.
+
+## Queue Topology
+- Use dedicated queue/transport for provisioning commands.
+- Use dedicated queue/transport for projection updates (status/log events).
+- Do not mix provisioning side effects and read-model persistence in one worker.
 
 ## Provisioning Flow Contract
 Expected steps:
@@ -44,6 +50,7 @@ Every step must:
 - Log AWS request/response context where safe
 - Log retries and terminal failures
 - Keep admin layer free of business logic
+- If provisioning assets live in infra/provisioning, treat that submodule as source of truth for provisioning.sh and nginx templates unless explicitly migrated
 
 ## Definition of Done (MVP)
 - POST /servers queues provisioning

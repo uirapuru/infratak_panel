@@ -6,10 +6,10 @@ namespace App\MessageHandler;
 
 use App\Enum\ServerStatus;
 use App\Message\CreateServerMessage;
+use App\Message\ServerProjectionMessage;
 use App\Repository\ServerRepository;
 use App\Service\Provisioning\ProvisioningOrchestrator;
 use App\Service\Provisioning\RetryableProvisioningException;
-use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Envelope;
@@ -23,7 +23,6 @@ final readonly class CreateServerHandler
 
     public function __construct(
         private ServerRepository $serverRepository,
-        private EntityManagerInterface $entityManager,
         private ProvisioningOrchestrator $orchestrator,
         private MessageBusInterface $messageBus,
         private LoggerInterface $logger,
@@ -44,11 +43,24 @@ final readonly class CreateServerHandler
             ]);
 
             $finished = $this->orchestrator->advance($server);
-            $server->setLastError(null);
-            $this->entityManager->flush();
+            $this->dispatchProjection(
+                serverId: $server->getId(),
+                status: $server->getStatus()->value,
+                step: $server->getStep()->value,
+                awsInstanceId: $server->getAwsInstanceId(),
+                publicIp: $server->getPublicIp(),
+                lastError: null,
+                clearLastError: true,
+                logLevel: 'info',
+                logMessage: 'Provisioning step processed.',
+                logContext: [
+                    'attempt' => $message->attempt,
+                    'finished' => $finished ? 1 : 0,
+                ],
+            );
 
             if (!$finished && $server->getStatus() !== ServerStatus::READY) {
-                $this->redispatch($message->serverId, 0, 500);
+                $this->redispatch($message->serverId, 0, 2_000);
             }
         } catch (RetryableProvisioningException $exception) {
             $this->handleRetry($message, $exception);
@@ -65,11 +77,22 @@ final readonly class CreateServerHandler
         }
 
         $attempt = $message->attempt + 1;
-        $server->setLastError($exception->getMessage());
 
         if ($attempt >= self::MAX_ATTEMPTS) {
-            $server->setStatus(ServerStatus::FAILED);
-            $this->entityManager->flush();
+            $this->dispatchProjection(
+                serverId: $server->getId(),
+                status: ServerStatus::FAILED->value,
+                step: $server->getStep()->value,
+                awsInstanceId: $server->getAwsInstanceId(),
+                publicIp: $server->getPublicIp(),
+                lastError: $exception->getMessage(),
+                clearLastError: false,
+                logLevel: 'error',
+                logMessage: 'Provisioning failed permanently.',
+                logContext: [
+                    'attempt' => $attempt,
+                ],
+            );
 
             $this->logger->error('Provisioning failed permanently', [
                 'serverId' => $message->serverId,
@@ -80,14 +103,57 @@ final readonly class CreateServerHandler
             return;
         }
 
-        $this->entityManager->flush();
         $this->logger->warning('Provisioning retry scheduled', [
             'serverId' => $message->serverId,
             'attempt' => $attempt,
             'error' => $exception->getMessage(),
         ]);
 
+        $this->dispatchProjection(
+            serverId: $server->getId(),
+            status: $server->getStatus()->value,
+            step: $server->getStep()->value,
+            awsInstanceId: $server->getAwsInstanceId(),
+            publicIp: $server->getPublicIp(),
+            lastError: $exception->getMessage(),
+            clearLastError: false,
+            logLevel: 'warning',
+            logMessage: 'Provisioning retry scheduled.',
+            logContext: [
+                'attempt' => $attempt,
+            ],
+        );
+
         $this->redispatch($message->serverId, $attempt, random_int(10_000, 30_000));
+    }
+
+    /**
+     * @param array<string, scalar|null> $logContext
+     */
+    private function dispatchProjection(
+        string $serverId,
+        ?string $status,
+        ?string $step,
+        ?string $awsInstanceId,
+        ?string $publicIp,
+        ?string $lastError,
+        bool $clearLastError,
+        string $logLevel,
+        string $logMessage,
+        array $logContext,
+    ): void {
+        $this->messageBus->dispatch(new ServerProjectionMessage(
+            serverId: $serverId,
+            status: $status,
+            step: $step,
+            awsInstanceId: $awsInstanceId,
+            publicIp: $publicIp,
+            lastError: $lastError,
+            clearLastError: $clearLastError,
+            logLevel: $logLevel,
+            logMessage: $logMessage,
+            logContext: $logContext,
+        ));
     }
 
     private function redispatch(string $serverId, int $attempt, int $delayMs): void
