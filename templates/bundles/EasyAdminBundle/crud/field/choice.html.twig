@@ -1,6 +1,8 @@
 {%- set badgeKey = field.value.value|default(field.value|default('')) -%}
 {%- set color = {
+    'none': 'secondary',
     'creating': 'info',
+    'diagnosing': 'primary',
     'provisioning': 'info',
     'cert_pending': 'warning',
     'ready': 'success',
@@ -8,4 +10,8 @@
     'deleted': 'secondary',
     'stopped': 'warning'
 }[badgeKey] ?? 'secondary' -%}
-<span class="badge bg-{{ color }}">{{ field.formattedValue|default(field.value)|trans|raw }}</span>
+{%- if badgeKey == 'none' -%}
+    <span></span>
+{%- else -%}
+    <span class="badge bg-{{ color }}">{{ field.formattedValue|default(field.value)|trans|raw }}</span>
+{%- endif -%}

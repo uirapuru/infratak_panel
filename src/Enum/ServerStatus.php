@@ -7,6 +7,7 @@ namespace App\Enum;
 enum ServerStatus: string
 {
     case CREATING = 'creating';
+    case DIAGNOSING = 'diagnosing';
     case PROVISIONING = 'provisioning';
     case CERT_PENDING = 'cert_pending';
     case READY = 'ready';

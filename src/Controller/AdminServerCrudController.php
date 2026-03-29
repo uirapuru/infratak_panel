@@ -229,6 +229,11 @@ final class AdminServerCrudController extends AbstractCrudController
             );
         }
 
+        $server->setStatus(ServerStatus::DIAGNOSING);
+        $server->setStep(ServerStep::WAIT_SSM);
+        $server->setLastDiagnoseStatus('running');
+        $this->entityManager->flush();
+
         $this->messageBus->dispatch(new DiagnoseServerMessage($server->getId()));
         $this->addFlash('success', 'Diagnose queued. Refresh this page in a moment to see results.');
 

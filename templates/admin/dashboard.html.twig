@@ -32,5 +32,17 @@
         </div>
     </a>
 
+    {# Worker status cards #}
+    {% for workerName, worker in workerStatuses %}
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 6px solid {{ worker.stateColor }}; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.06);">
+            <div style="font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Worker</div>
+            <div style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.2; margin-bottom: 8px;">{{ workerName|replace({'_': ' '})|title }}</div>
+            <div style="display: inline-block; font-size: 13px; font-weight: 700; color: {{ worker.stateColor }}; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 999px; padding: 6px 12px; margin-bottom: 10px;">
+                {{ worker.stateLabel }}
+            </div>
+            <div style="font-size: 13px; color: #334155;">{{ worker.details }}</div>
+        </div>
+    {% endfor %}
+
 </div>
 {% endblock %}

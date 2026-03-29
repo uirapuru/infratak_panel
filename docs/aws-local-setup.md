@@ -10,6 +10,7 @@ Jak uruchomić lokalnie infratak_panel z profilem AWS `infratak-dev` tak, żeby 
 * backend (`php`) i oba workery (`worker_provisioning`, `worker_projection`) w Dockerze używają tego samego profilu
 * EC2 uruchamiane przez aplikację dostają `IamInstanceProfile`
 * provisioning przez SSM działa
+* diagnose działa asynchronicznie przez ten sam worker provisioning
 * klucze AWS **nie są** wpisane ręcznie do kodu ani do `.env`
 
 ---
@@ -25,7 +26,7 @@ Używany przez:
 * Symfony app (`php`) w kontenerze
 * oba workery Messenger w kontenerze
 
-W projekcie: user **`infratak-provisioner`**, profil lokalny **`infratak-dev`**
+W projekcie: user **`infratak-provisioner`**, profil lokalny domyślnie **`infratak-dev`**
 
 ### B. IAM role dla EC2
 
@@ -81,15 +82,16 @@ aws_secret_access_key = TU_SECRET
 
 ## 4. Zmienne środowiskowe wymagane przez PHP AWS SDK
 
-To jest najczęstszy punkt pomyłek. Oprócz `AWS_PROFILE` i `AWS_REGION` SDK wymaga **czterech dodatkowych zmiennych**:
+To jest najczęstszy punkt pomyłek. Oprócz `AWS_PROFILE` i `AWS_REGION` SDK wymaga dodatkowych flag środowiskowych:
 
 | Zmienna                     | Wartość         | Po co                                                                                                |
 |-----------------------------|-----------------|------------------------------------------------------------------------------------------------------|
 | `AWS_SDK_LOAD_CONFIG`       | `1`             | Każe PHP AWS SDK załadować `~/.aws/config`. **Bez tego named profiles nie działają.**                |
 | `AWS_EC2_METADATA_DISABLED` | `true`          | Blokuje próbę odpytania EC2 metadata service (169.254.169.254). W Dockerze ten endpoint nie istnieje; bez tej flagi SDK będzie timeout-ował próbując uzyskać credentials stamtąd. |
-| `AWS_DEFAULT_REGION`        | `eu-central-1`  | PHP AWS SDK w niektórych wersjach ignoruje `AWS_REGION` i czyta **tylko** `AWS_DEFAULT_REGION`. Ustaw obie. |
 
-Wszystkie trzy są już ustawione w `compose.yaml`. Przy każdej modyfikacji compose zachowaj je.
+W aktualnym `compose.yaml` ustawione są `AWS_PROFILE`, `AWS_REGION`, `AWS_SDK_LOAD_CONFIG` i `AWS_EC2_METADATA_DISABLED`. Przy każdej modyfikacji compose zachowaj je.
+
+> `AWS_DEFAULT_REGION` nie jest obecnie wymagane przez samą aplikację, bo klienci AWS w kodzie dostają region jawnie z konfiguracji Symfony. Możesz dodać tę zmienną lokalnie, jeśli używasz dodatkowych ad-hoc skryptów PHP/CLI, ale dokumentacja projektu nie zakłada jej jako obowiązkowej.
 
 > **SDK retry config:** Przy tworzeniu klientów SSM/EC2 ustaw `'retries' => 5` (lub odpowiednią wartość), żeby SDK sam ponawiał przy przejściowych błędach sieciowych — to osobna warstwa ochrony poza logiką `wait_ssm`:
 > ```php
@@ -126,7 +128,6 @@ services:
     environment:
       AWS_PROFILE: ${AWS_PROFILE:-infratak-dev}
       AWS_REGION: ${AWS_REGION:-eu-central-1}
-      AWS_DEFAULT_REGION: ${AWS_REGION:-eu-central-1}
       AWS_SDK_LOAD_CONFIG: "1"
       AWS_EC2_METADATA_DISABLED: "true"
     volumes:
@@ -142,7 +143,6 @@ services:
     environment:
       AWS_PROFILE: ${AWS_PROFILE:-infratak-dev}
       AWS_REGION: ${AWS_REGION:-eu-central-1}
-      AWS_DEFAULT_REGION: ${AWS_REGION:-eu-central-1}
       AWS_SDK_LOAD_CONFIG: "1"
       AWS_EC2_METADATA_DISABLED: "true"
     volumes:
@@ -158,7 +158,6 @@ services:
     environment:
       AWS_PROFILE: ${AWS_PROFILE:-infratak-dev}
       AWS_REGION: ${AWS_REGION:-eu-central-1}
-      AWS_DEFAULT_REGION: ${AWS_REGION:-eu-central-1}
       AWS_SDK_LOAD_CONFIG: "1"
       AWS_EC2_METADATA_DISABLED: "true"
     volumes:
@@ -176,7 +175,6 @@ Poniższe zmienne muszą być ustawione w `.env` (lub `.env.local`). Wartości z
 
 ```env
 AWS_REGION=eu-central-1
-AWS_DEFAULT_REGION=eu-central-1
 AWS_PROFILE=infratak-dev
 AWS_EC2_AMI_ID=ami-xxxxxxxxxxxxxxxxx
 AWS_EC2_INSTANCE_TYPE=t3.medium
@@ -272,7 +270,6 @@ Wykonaj w tej kolejności:
 3. Uzupełnij `.env` / `.env.local`:
    - `AWS_PROFILE=infratak-dev`
    - `AWS_REGION=eu-central-1`
-   - `AWS_DEFAULT_REGION=eu-central-1`
    - `AWS_INSTANCE_PROFILE_NAME=infratak-ec2-profile`
    - `AWS_EC2_SECURITY_GROUP_ID`, `AWS_EC2_SUBNET_ID`, `AWS_ROUTE53_HOSTED_ZONE_ID`
 4. Potwierdź, że `compose.yaml` ma `AWS_SDK_LOAD_CONFIG=1` i `AWS_EC2_METADATA_DISABLED=true`
@@ -316,7 +313,57 @@ Przepływ: `ec2 → wait_ip → dns → wait_dns → wait_ssm → provision → 
 
 ---
 
-## 14. Runtime guards — co aplikacja sprawdza automatycznie
+## 14. Workery Messenger — ważne po zmianach w kodzie
+
+Workery `worker_provisioning` i `worker_projection` są długowiecznymi procesami PHP. To oznacza, że:
+
+* po zmianie enumów (`ServerStatus`, `ServerStep`), handlerów Messengera albo routingu wiadomości **musisz zrestartować workery**,
+* samo `docker compose up -d` nie gwarantuje przeładowania już działającego procesu,
+* bez restartu worker może konsumować wiadomości na starym kodzie i wpadać w retry/fail.
+
+Komenda operacyjna:
+
+```bash
+docker compose restart worker_provisioning worker_projection
+```
+
+Praktyczny przykład z projektu:
+
+* po dodaniu statusu `diagnosing` worker provisioning, który nie został zrestartowany, nie umiał zhydradować nowej wartości enumu,
+* `DiagnoseServerMessage` retry-ował 5 razy,
+* po 5 próbach wiadomość została usunięta z transportu,
+* rekord serwera został w stanie `DIAGNOSING`, mimo że kolejka była pusta.
+
+Wniosek: po zmianach backendowych związanych z Messengerem restart workerów jest częścią standardowej procedury deploy/local dev.
+
+---
+
+## 15. Diagnose — jak działa teraz
+
+`Diagnose` nie działa synchronicznie w request/response.
+
+Obecny flow:
+
+1. kliknięcie `Diagnose` w EasyAdmin ustawia:
+  * `status = diagnosing`
+  * `step = wait_ssm`
+  * `lastDiagnoseStatus = running`
+2. wiadomość `DiagnoseServerMessage` trafia na transport `provisioning`
+3. worker provisioning wykonuje diagnozę przez AWS SSM
+4. podczas wykonania `step` przechodzi na `provision`
+5. wynik końcowy:
+  * sukces: `status = ready`, `step = none`
+  * porażka: `status = failed`, `step` zostaje na etapie błędu
+
+Jeśli diagnose „nic nie robi”, sprawdź w tej kolejności:
+
+1. `docker compose ps`
+2. `docker compose exec rabbitmq rabbitmqctl list_queues name consumers messages`
+3. `docker compose logs --tail=120 worker_provisioning`
+
+---
+
+## 16. Runtime guards — co aplikacja sprawdza automatycznie
 
 Następujące guardy są **już zaimplementowane w kodzie** (`AwsProvisioningClient`, `CreateServerHandler`):
 

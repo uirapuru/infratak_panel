@@ -22,6 +22,7 @@ final readonly class ProvisioningOrchestrator
     public function advance(Server $server): bool
     {
         return match ($server->getStep()) {
+            ServerStep::NONE => true,
             ServerStep::EC2 => $this->handleEc2Step($server),
             ServerStep::WAIT_IP => $this->handleWaitIpStep($server),
             ServerStep::DNS => $this->handleDnsStep($server),
@@ -29,6 +30,7 @@ final readonly class ProvisioningOrchestrator
             ServerStep::WAIT_SSM => $this->handleWaitSsmStep($server),
             ServerStep::PROVISION => $this->handleProvisionStep($server),
             ServerStep::CERT => $this->handleCertStep($server),
+            ServerStep::CLEANUP => true,
         };
     }
 
@@ -166,6 +168,7 @@ final readonly class ProvisioningOrchestrator
         $commandId = $this->aws->sendCertbotCommand($instanceId, $server->getDomain(), $server->getPortalDomain());
 
         $server->setStatus(ServerStatus::READY);
+        $server->setStep(ServerStep::NONE);
 
         $this->logger->info('Provisioning step end', ['step' => 'cert', 'serverId' => $server->getId(), 'ssmCommandId' => $commandId]);
 

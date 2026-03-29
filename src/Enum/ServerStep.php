@@ -6,6 +6,7 @@ namespace App\Enum;
 
 enum ServerStep: string
 {
+    case NONE = 'none';
     case EC2 = 'ec2';
     case WAIT_IP = 'wait_ip';
     case DNS = 'dns';

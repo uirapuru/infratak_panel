@@ -70,5 +70,10 @@ services:
 
     App\Service\Provisioning\AwsProvisioningClientInterface: '@App\Service\Provisioning\AwsProvisioningClient'
 
+    App\Service\Monitoring\WorkerHealthService:
+        arguments:
+            $provisioningDsn: '%env(MESSENGER_PROVISIONING_TRANSPORT_DSN)%'
+            $projectionDsn: '%env(MESSENGER_PROJECTION_TRANSPORT_DSN)%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

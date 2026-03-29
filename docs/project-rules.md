@@ -22,6 +22,7 @@ It is not a CRUD-first app and not a dashboard-first app.
 ## Queue Topology
 - Use dedicated queue/transport for provisioning commands.
 - Use dedicated queue/transport for projection updates (status/log events).
+- Diagnose uses the provisioning transport; do not introduce a third queue unless there is a clear operational reason.
 - Do not mix provisioning side effects and read-model persistence in one worker.
 
 ## Provisioning Flow Contract
@@ -34,6 +35,16 @@ Expected steps:
 6. provision
 7. cert
 8. ready
+
+Ready-state rule:
+- When status becomes `ready`, step must be cleared (`none` in persistence, empty in admin presentation).
+
+Diagnose flow rule:
+- Diagnose is async.
+- Diagnose sets status=`diagnosing` while running.
+- Diagnose may update step during execution.
+- Diagnose success ends with status=`ready` and cleared step.
+- Diagnose failure ends with status=`failed` and preserves the failure step for debugging.
 
 Every step must:
 - update persisted state
@@ -56,6 +67,7 @@ Every step must:
 - If provisioning assets live in infra/provisioning, treat that submodule as source of truth for provisioning.sh and nginx templates unless explicitly migrated
 - Log SSM readiness diagnostics before provision step with: instanceId, hasIamProfile, ssmManaged
 - Keep backend EC2 launch networking aligned with provisioning baseline (SecurityGroupIds and SubnetId from config)
+- After changing enums, handlers, or Messenger routing, restart workers so they reload current code
 
 ## Definition of Done (MVP)
 - POST /servers queues provisioning
@@ -88,3 +100,4 @@ No change is complete unless code, docs, and tests are consistent.
 - tests pass
 - migration state is valid
 - docs reflect final behavior
+- long-running workers were restarted locally if enum/handler behavior changed during verification

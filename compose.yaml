@@ -25,6 +25,7 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
+    restart: unless-stopped
     working_dir: /app
     command: php bin/console messenger:consume provisioning --time-limit=3600 --memory-limit=256M
     environment:
@@ -47,6 +48,7 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
+    restart: unless-stopped
     working_dir: /app
     command: php bin/console messenger:consume projection --time-limit=3600 --memory-limit=256M
     environment:

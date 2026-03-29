@@ -27,11 +27,15 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
   - awsInstanceId
   - publicIp
   - lastError
+  - lastRetryAt
+  - lastDiagnoseStatus
+  - lastDiagnoseLog
+  - lastDiagnosedAt
   - createdAt
   - updatedAt
 - Enums:
-  - ServerStatus: creating, provisioning, cert_pending, ready, failed, stopped
-  - ServerStep: ec2, wait_ip, dns, wait_dns, wait_ssm, provision, cert
+  - ServerStatus: creating, diagnosing, provisioning, cert_pending, ready, failed, deleted, stopped
+  - ServerStep: none, ec2, wait_ip, dns, wait_dns, wait_ssm, provision, cert, cleanup
 
 ### API Layer (API Platform)
 - Server resource operations:
@@ -62,18 +66,22 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
 - Message classes:
   - CreateServerMessage
   - DeleteServerMessage
+  - DiagnoseServerMessage
   - ServerProjectionMessage
 - Handlers:
   - CreateServerHandler
   - DeleteServerHandler
+  - DiagnoseServerHandler
   - ServerProjectionHandler
 - Transport:
   - provisioning AMQP transport for AWS orchestration
   - projection AMQP transport for status/log projection updates
+  - Diagnose messages are routed to the existing provisioning transport (there is no third business queue)
 - Retry behavior:
   - max attempts: 5
   - delay range: 10s-30s for orchestration retries
   - projection worker persists status and logs in DB
+  - no failure transport is configured yet; after max retries messages are removed from transport
 
 ### Provisioning Orchestration
 ProvisioningOrchestrator executes step-by-step flow:
@@ -84,7 +92,7 @@ ProvisioningOrchestrator executes step-by-step flow:
 5. wait_ssm (instance profile + SSM managed readiness diagnostics)
 6. provision (SSM script for nginx + HTTP)
 7. cert (SSM certbot command)
-8. set ready status
+8. set ready status and clear step to none
 
 Rules respected in implementation:
 - no AWS calls in controllers/processors
@@ -124,11 +132,17 @@ Rules respected in implementation:
   - GET /health
 - EasyAdmin:
   - /admin dashboard
+  - dashboard cards for ready, failed, and in-progress servers
+  - dashboard worker cards for provisioning/projection consumer visibility
   - server list/details/edit/delete
   - creating a new server from EasyAdmin queues provisioning via ServerCreationService
   - create form should expose only user-provided input such as name; system fields like lastError/status/step are managed asynchronously
-  - enum fields such as status and step are rendered in admin as scalar values
+  - enum fields such as status and step are rendered as badges in admin
   - action: retry provisioning (queues CreateServerMessage)
+  - action: diagnose (queues DiagnoseServerMessage on provisioning transport)
+  - diagnose sets status=diagnosing while running
+  - diagnose writes final status ready or failed
+  - step is cleared when server returns to ready; on failed diagnose the step remains at the failure point
   - operation log screen in admin menu
 
 ### Projection Log Model
@@ -149,6 +163,11 @@ Configured services:
 - worker_provisioning
 - worker_projection
 
+Worker details:
+- workers use restart: unless-stopped
+- provisioning and projection are long-running PHP processes and do not hot-reload code
+- after changing enums, handlers, or messenger-related code, workers must be restarted
+
 Main files:
 - compose.yaml
 - compose.override.yaml
@@ -168,13 +187,24 @@ Main files:
 - Ensure worker is running to process async messages.
 - For full async flow run dedicated workers:
   - docker compose up -d worker_provisioning worker_projection
+- After backend changes affecting Messenger handlers/enums, restart workers:
+  - docker compose restart worker_provisioning worker_projection
 - Before opening /admin on a fresh environment, run migrations:
   - docker compose exec php php bin/console doctrine:migrations:migrate --no-interaction
+
+Diagnose runtime notes:
+- Diagnose is asynchronous and uses the provisioning queue/worker
+- While diagnose is running, server status should be diagnosing
+- A stuck diagnosing status with no updates usually indicates one of:
+  - worker not running
+  - worker running old code and needing restart
+  - diagnose message exhausted retries and was removed from transport
 
 ## Known Gaps / Next Work
 - Add automated tests (unit + integration + e2e flow checks)
 - Harden idempotency for each external step
 - Add richer status observability and structured logs
+- Add Messenger failure transport for post-mortem recovery of exhausted messages
 - Add CI pipeline for lint/test/migration checks
 - Decide whether to continue evolving the submodule through SSM adapters or migrate more of its Makefile logic into native Symfony services
 - Resolve AWS organization SCP blockers or use isolated account without SCP restrictions for MVP reliability

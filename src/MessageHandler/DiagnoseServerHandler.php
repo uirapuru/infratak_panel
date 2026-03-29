@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\MessageHandler;
 
 use App\Entity\ServerOperationLog;
+use App\Enum\ServerStatus;
+use App\Enum\ServerStep;
 use App\Message\DiagnoseServerMessage;
 use App\Repository\ServerRepository;
 use App\Service\Provisioning\AwsProvisioningClientInterface;
@@ -32,9 +34,15 @@ final readonly class DiagnoseServerHandler
             return;
         }
 
+        $server->setStatus(ServerStatus::DIAGNOSING);
+        $server->setStep(ServerStep::WAIT_SSM);
+        $server->setLastDiagnoseStatus('running');
+        $this->entityManager->flush();
+
         $instanceId = $server->getAwsInstanceId();
         if ($instanceId === null || $instanceId === '') {
             $logMessage = 'Diagnose failed: missing EC2 instance id.';
+            $server->setStatus(ServerStatus::FAILED);
             $server->setLastDiagnoseStatus('failed');
             $server->setLastDiagnosedAt(new \DateTimeImmutable());
             $server->setLastDiagnoseLog($logMessage);
@@ -54,6 +62,9 @@ final readonly class DiagnoseServerHandler
         }
 
         try {
+            $server->setStep(ServerStep::PROVISION);
+            $this->entityManager->flush();
+
             $result = $this->awsProvisioningClient->sendDiagnoseCommand($instanceId, $server->getDomain(), $server->getPortalDomain());
 
             $isSuccess = $result['status'] === 'Success';
@@ -61,6 +72,10 @@ final readonly class DiagnoseServerHandler
             $fullLog = $result['output'];
             $summary = sprintf('Diagnose %s (SSM status: %s)', $diagnoseStatus, $result['status']);
 
+            $server->setStatus($isSuccess ? ServerStatus::READY : ServerStatus::FAILED);
+            if ($isSuccess) {
+                $server->setStep(ServerStep::NONE);
+            }
             $server->setLastDiagnoseStatus($diagnoseStatus);
             $server->setLastDiagnosedAt(new \DateTimeImmutable());
             $server->setLastDiagnoseLog($fullLog);
@@ -85,6 +100,7 @@ final readonly class DiagnoseServerHandler
             $this->entityManager->flush();
         } catch (\Throwable $exception) {
             $fullLog = $exception->getMessage();
+            $server->setStatus(ServerStatus::FAILED);
             $server->setLastDiagnoseStatus('failed');
             $server->setLastDiagnosedAt(new \DateTimeImmutable());
             $server->setLastDiagnoseLog($fullLog);

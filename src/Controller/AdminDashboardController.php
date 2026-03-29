@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Enum\ServerStatus;
 use App\Repository\ServerRepository;
+use App\Service\Monitoring\WorkerHealthService;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminDashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard;
@@ -20,6 +21,7 @@ final class AdminDashboardController extends AbstractDashboardController
     public function __construct(
         private readonly ServerRepository $serverRepository,
         private readonly AdminUrlGenerator $adminUrlGenerator,
+        private readonly WorkerHealthService $workerHealthService,
     ) {
     }
 
@@ -40,6 +42,8 @@ final class AdminDashboardController extends AbstractDashboardController
             ServerStatus::DELETED->value,
         ]);
 
+        $workerStatuses = $this->workerHealthService->getWorkersStatus();
+
         return $this->render('admin/dashboard.html.twig', [
             'readyCount' => $readyCount,
             'failedCount' => $failedCount,
@@ -47,6 +51,7 @@ final class AdminDashboardController extends AbstractDashboardController
             'readyUrl' => $readyUrl,
             'failedUrl' => $failedUrl,
             'inProgressUrl' => $inProgressUrl,
+            'workerStatuses' => $workerStatuses,
         ]);
     }
 
