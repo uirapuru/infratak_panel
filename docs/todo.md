@@ -29,7 +29,11 @@ Cel:
 
 ## Billing i monetyzacja
 
-5. Dodać abonamenty na określony czas:
+5. Okres demo — przez pierwszy miesiąc działania aplikacji dostęp jest darmowy, ale ograniczony:
+- każde konto może mieć maksymalnie 3 instancje,
+- każda instancja musi się automatycznie wyłączać po 1 godzinie od uruchomienia.
+
+6. Dodać abonamenty na określony czas:
 - warianty okresu: dni, miesiące, rok,
 - mapowanie planu na odpowiedni typ/rozmiar instancji,
 - walidacja terminu ważności i automatyczne wygaszanie po upływie czasu.
