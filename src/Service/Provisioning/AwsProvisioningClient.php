@@ -21,6 +21,8 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         private SubmoduleProvisioningAssets $submoduleProvisioningAssets,
         private string $amiId,
         private string $instanceType,
+        private string $securityGroupId,
+        private string $subnetId,
         private string $hostedZoneId,
         private ?string $instanceProfileName,
     ) {
@@ -28,11 +30,17 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
 
     public function createEc2Instance(string $serverName): string
     {
+        if (empty($this->instanceProfileName)) {
+            throw new FinalException('AWS_INSTANCE_PROFILE_NAME is required for SSM');
+        }
+
         $runInstances = [
             'ImageId' => $this->amiId,
             'InstanceType' => $this->instanceType,
             'MinCount' => 1,
             'MaxCount' => 1,
+            'SecurityGroupIds' => [$this->securityGroupId],
+            'SubnetId' => $this->subnetId,
             'TagSpecifications' => [[
                 'ResourceType' => 'instance',
                 'Tags' => [
@@ -41,9 +49,7 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
             ]],
         ];
 
-        if ($this->instanceProfileName !== null && $this->instanceProfileName !== '') {
-            $runInstances['IamInstanceProfile'] = ['Name' => $this->instanceProfileName];
-        }
+        $runInstances['IamInstanceProfile'] = ['Name' => $this->instanceProfileName];
 
         $result = $this->ec2->runInstances($runInstances);
         $instances = $result->get('Instances');
@@ -71,6 +77,61 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         $ip = $instance['PublicIpAddress'] ?? null;
 
         return is_string($ip) ? $ip : null;
+    }
+
+    public function isSsmReady(string $instanceId): bool
+    {
+        $diagnostics = $this->getSsmDiagnostics($instanceId);
+
+        return $diagnostics['ssmManaged'];
+    }
+
+    /**
+     * @return array{hasIamProfile: bool, ssmManaged: bool}
+     */
+    public function getSsmDiagnostics(string $instanceId): array
+    {
+        $hasProfile = false;
+        $isManaged = false;
+
+        $ec2Result = $this->ec2->describeInstances([
+            'InstanceIds' => [$instanceId],
+        ]);
+
+        $reservations = $ec2Result->get('Reservations');
+        $instance = is_array($reservations) ? ($reservations[0]['Instances'][0] ?? null) : null;
+        if (is_array($instance)) {
+            $profileArn = $instance['IamInstanceProfile']['Arn'] ?? null;
+            $hasProfile = is_string($profileArn) && $profileArn !== '';
+        }
+
+        try {
+            $result = $this->ssm->describeInstanceInformation([
+                'Filters' => [[
+                    'Key' => 'InstanceIds',
+                    'Values' => [$instanceId],
+                ]],
+                'MaxResults' => 1,
+            ]);
+        } catch (AwsException $exception) {
+            if ($exception->getAwsErrorCode() === 'AccessDeniedException' || $exception->getStatusCode() === 403) {
+                throw new FinalException('Missing SSM read permissions (ssm:DescribeInstanceInformation).');
+            }
+
+            throw $exception;
+        }
+
+        $items = $result->get('InstanceInformationList');
+        $info = is_array($items) ? ($items[0] ?? null) : null;
+
+        if (is_array($info)) {
+            $isManaged = ($info['PingStatus'] ?? null) === 'Online';
+        }
+
+        return [
+            'hasIamProfile' => $hasProfile,
+            'ssmManaged' => $isManaged,
+        ];
     }
 
     public function createDnsRecords(string $domain, string $portalDomain, string $ip): void
@@ -154,16 +215,28 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
      */
     private function sendSsmCommandAndWait(string $instanceId, array $commands): string
     {
-        $result = $this->ssm->sendCommand([
-            'DocumentName' => 'AWS-RunShellScript',
-            'InstanceIds' => [$instanceId],
-            'Parameters' => [
-                'commands' => $commands,
-            ],
-            'CloudWatchOutputConfig' => [
-                'CloudWatchOutputEnabled' => true,
-            ],
-        ]);
+        try {
+            $result = $this->ssm->sendCommand([
+                'DocumentName' => 'AWS-RunShellScript',
+                'InstanceIds' => [$instanceId],
+                'Parameters' => [
+                    'commands' => $commands,
+                ],
+                'CloudWatchOutputConfig' => [
+                    'CloudWatchOutputEnabled' => true,
+                ],
+            ]);
+        } catch (AwsException $exception) {
+            $errorCode = (string) ($exception->getAwsErrorCode() ?? '');
+            if (str_contains($errorCode, 'InvalidInstanceId')) {
+                throw new RetryableProvisioningException('SSM not ready yet');
+            }
+
+            throw new \RuntimeException(
+                'SSM SendCommand failed: instance not registered in SSM (likely missing IAM role or agent not ready)',
+                previous: $exception,
+            );
+        }
 
         $command = $result->get('Command');
         $commandId = $command['CommandId'] ?? null;

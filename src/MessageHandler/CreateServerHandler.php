@@ -8,6 +8,7 @@ use App\Enum\ServerStatus;
 use App\Message\CreateServerMessage;
 use App\Message\ServerProjectionMessage;
 use App\Repository\ServerRepository;
+use App\Service\Provisioning\FinalException;
 use App\Service\Provisioning\ProvisioningOrchestrator;
 use App\Service\Provisioning\RetryableProvisioningException;
 use Monolog\Attribute\WithMonologChannel;
@@ -70,9 +71,44 @@ final readonly class CreateServerHandler
             }
         } catch (RetryableProvisioningException $exception) {
             $this->handleRetry($message, $exception);
+        } catch (FinalException $exception) {
+            $this->handlePermanentFailure($message, $exception, $message->attempt + 1);
         } catch (\Throwable $exception) {
             $this->handleRetry($message, $exception);
         }
+    }
+
+    private function handlePermanentFailure(CreateServerMessage $message, \Throwable $exception, int $attempt): void
+    {
+        $server = $this->serverRepository->find($message->serverId);
+        if ($server === null) {
+            return;
+        }
+
+        $this->dispatchProjection(
+            serverId: $server->getId(),
+            status: ServerStatus::FAILED->value,
+            step: $server->getStep()->value,
+            awsInstanceId: $server->getAwsInstanceId(),
+            clearAwsInstanceId: false,
+            publicIp: $server->getPublicIp(),
+            clearPublicIp: false,
+            lastError: $exception->getMessage(),
+            clearLastError: false,
+            startedAt: $server->getStartedAt(),
+            endedAt: $server->getEndedAt(),
+            logLevel: 'error',
+            logMessage: 'Provisioning failed permanently.',
+            logContext: [
+                'attempt' => $attempt,
+            ],
+        );
+
+        $this->logger->error('Provisioning failed permanently', [
+            'serverId' => $message->serverId,
+            'error' => $exception->getMessage(),
+            'attempt' => $attempt,
+        ]);
     }
 
     private function handleRetry(CreateServerMessage $message, \Throwable $exception): void

@@ -31,7 +31,7 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
   - updatedAt
 - Enums:
   - ServerStatus: creating, provisioning, cert_pending, ready, failed, stopped
-  - ServerStep: ec2, wait_ip, dns, wait_dns, provision, cert
+  - ServerStep: ec2, wait_ip, dns, wait_dns, wait_ssm, provision, cert
 
 ### API Layer (API Platform)
 - Server resource operations:
@@ -81,9 +81,10 @@ ProvisioningOrchestrator executes step-by-step flow:
 2. wait_ip (poll instance IP)
 3. dns (create Route53 records)
 4. wait_dns (DNS readiness check)
-5. provision (SSM script for nginx + HTTP)
-6. cert (SSM certbot command)
-7. set ready status
+5. wait_ssm (instance profile + SSM managed readiness diagnostics)
+6. provision (SSM script for nginx + HTTP)
+7. cert (SSM certbot command)
+8. set ready status
 
 Rules respected in implementation:
 - no AWS calls in controllers/processors
@@ -96,10 +97,14 @@ Rules respected in implementation:
   - runInstances
   - describeInstances
   - terminateInstances
+  - launch is fail-fast when AWS_INSTANCE_PROFILE_NAME is missing
+  - launch uses configured SecurityGroupIds and SubnetId
 - Route53:
   - UPSERT A records for main and portal domains
 - SSM:
   - sendCommand with AWS-RunShellScript
+  - wait_ssm checks readiness and logs diagnostics (instanceId, hasIamProfile, ssmManaged)
+  - InvalidInstanceId during SendCommand is treated as retryable race (agent/registration not ready yet)
   - provisioning and cert steps wait for real SSM completion before progressing
   - used for provisioning and certbot
 
@@ -172,3 +177,12 @@ Main files:
 - Add richer status observability and structured logs
 - Add CI pipeline for lint/test/migration checks
 - Decide whether to continue evolving the submodule through SSM adapters or migrate more of its Makefile logic into native Symfony services
+- Resolve AWS organization SCP blockers or use isolated account without SCP restrictions for MVP reliability
+
+## AWS + SSM Lessons Learned
+- IAM User and EC2 IAM Role are separate concerns:
+  - IAM User (`infratak-provisioner`) is for backend/CLI API access
+  - EC2 IAM Role in instance profile is required for in-instance SSM execution
+- Missing EC2 instance profile causes downstream provisioning failures at SSM steps even if EC2 launch and DNS succeed
+- AWS organization SCP can block required diagnostics APIs (for example DescribeInstanceInformation) regardless of attached IAM policy
+- When SCP blocks required APIs, provisioning reliability is environment-constrained and this must be documented as an external blocker

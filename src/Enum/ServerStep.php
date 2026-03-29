@@ -10,6 +10,7 @@ enum ServerStep: string
     case WAIT_IP = 'wait_ip';
     case DNS = 'dns';
     case WAIT_DNS = 'wait_dns';
+    case WAIT_SSM = 'wait_ssm';
     case PROVISION = 'provision';
     case CERT = 'cert';
     case CLEANUP = 'cleanup';

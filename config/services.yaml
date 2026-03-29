@@ -10,6 +10,8 @@ parameters:
     aws.region: '%env(AWS_REGION)%'
     aws.ec2.ami_id: '%env(AWS_EC2_AMI_ID)%'
     aws.ec2.instance_type: '%env(AWS_EC2_INSTANCE_TYPE)%'
+    aws.ec2.security_group_id: '%env(AWS_EC2_SECURITY_GROUP_ID)%'
+    aws.ec2.subnet_id: '%env(AWS_EC2_SUBNET_ID)%'
     aws.route53.hosted_zone_id: '%env(AWS_ROUTE53_HOSTED_ZONE_ID)%'
     aws.instance_profile_name: '%env(default::AWS_INSTANCE_PROFILE_NAME)%'
     provisioning.submodule_path: 'infra/provisioning'
@@ -61,6 +63,8 @@ services:
         arguments:
             $amiId: '%aws.ec2.ami_id%'
             $instanceType: '%aws.ec2.instance_type%'
+            $securityGroupId: '%aws.ec2.security_group_id%'
+            $subnetId: '%aws.ec2.subnet_id%'
             $hostedZoneId: '%aws.route53.hosted_zone_id%'
             $instanceProfileName: '%aws.instance_profile_name%'
 

@@ -10,6 +10,13 @@ interface AwsProvisioningClientInterface
 
     public function getInstancePublicIp(string $instanceId): ?string;
 
+    public function isSsmReady(string $instanceId): bool;
+
+    /**
+     * @return array{hasIamProfile: bool, ssmManaged: bool}
+     */
+    public function getSsmDiagnostics(string $instanceId): array;
+
     public function createDnsRecords(string $domain, string $portalDomain, string $ip): void;
 
     public function sendProvisioningCommand(string $instanceId, string $domain, string $portalDomain): string;

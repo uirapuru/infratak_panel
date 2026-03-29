@@ -26,6 +26,7 @@ final readonly class ProvisioningOrchestrator
             ServerStep::WAIT_IP => $this->handleWaitIpStep($server),
             ServerStep::DNS => $this->handleDnsStep($server),
             ServerStep::WAIT_DNS => $this->handleWaitDnsStep($server),
+            ServerStep::WAIT_SSM => $this->handleWaitSsmStep($server),
             ServerStep::PROVISION => $this->handleProvisionStep($server),
             ServerStep::CERT => $this->handleCertStep($server),
         };
@@ -102,9 +103,36 @@ final readonly class ProvisioningOrchestrator
             throw new RetryableProvisioningException('DNS propagation still pending.');
         }
 
-        $server->setStep(ServerStep::PROVISION);
+        $server->setStep(ServerStep::WAIT_SSM);
 
         $this->logger->info('Provisioning step end', ['step' => 'wait_dns', 'serverId' => $server->getId()]);
+
+        return false;
+    }
+
+    private function handleWaitSsmStep(Server $server): bool
+    {
+        $this->logger->info('Provisioning step start', ['step' => 'wait_ssm', 'serverId' => $server->getId()]);
+
+        $instanceId = $server->getAwsInstanceId();
+        if ($instanceId === null) {
+            throw new RetryableProvisioningException('Missing instance id while waiting for SSM readiness.');
+        }
+
+        $diagnostics = $this->aws->getSsmDiagnostics($instanceId);
+        $this->logger->info('SSM readiness diagnostics', [
+            'instanceId' => $instanceId,
+            'hasIamProfile' => $diagnostics['hasIamProfile'],
+            'ssmManaged' => $diagnostics['ssmManaged'],
+        ]);
+
+        if (!$diagnostics['ssmManaged']) {
+            throw new RetryableProvisioningException('SSM agent is not ready yet.');
+        }
+
+        $server->setStep(ServerStep::PROVISION);
+
+        $this->logger->info('Provisioning step end', ['step' => 'wait_ssm', 'serverId' => $server->getId()]);
 
         return false;
     }
