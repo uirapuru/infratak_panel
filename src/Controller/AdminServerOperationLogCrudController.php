@@ -56,7 +56,7 @@ final class AdminServerOperationLogCrudController extends AbstractCrudController
             TextField::new('step'),
             TextareaField::new('message')->hideOnIndex(),
             ArrayField::new('contextData')->hideOnIndex(),
-            DateTimeField::new('createdAt')->hideOnForm(),
+            DateTimeField::new('createdAt')->hideOnForm()->setTimezone('Europe/Warsaw'),
         ];
     }
 }

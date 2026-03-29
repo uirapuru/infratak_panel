@@ -9,6 +9,8 @@ use App\Enum\ServerStatus;
 use App\Enum\ServerStep;
 use App\Message\CreateServerMessage;
 use App\Message\DiagnoseServerMessage;
+use App\Message\ManualStopServerMessage;
+use App\Message\StartServerMessage;
 use App\Service\Server\ServerCreationService;
 use App\Service\Server\ServerDeletionService;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
@@ -96,13 +98,29 @@ final class AdminServerCrudController extends AbstractCrudController
                 'entityId' => $server->getId(),
             ]);
 
+        $stopServer = Action::new('stopServer', 'Stop')
+            ->displayIf(static fn (Server $server): bool => $server->getStatus() === ServerStatus::READY)
+            ->linkToRoute('admin_admin_server_stop', static fn (Server $server): array => [
+                'entityId' => $server->getId(),
+            ]);
+
+        $startServer = Action::new('startServer', 'Start')
+            ->displayIf(static fn (Server $server): bool => $server->getStatus() === ServerStatus::STOPPED)
+            ->linkToRoute('admin_admin_server_start', static fn (Server $server): array => [
+                'entityId' => $server->getId(),
+            ]);
+
         return $actions
             ->disable(Action::EDIT)
             ->add(Crud::PAGE_INDEX, Action::DETAIL)
             ->add('index', $retryProvisioning)
             ->add(Crud::PAGE_INDEX, $diagnoseProvisioning)
+            ->add(Crud::PAGE_INDEX, $stopServer)
+            ->add(Crud::PAGE_INDEX, $startServer)
             ->add(Crud::PAGE_DETAIL, $retryProvisioning)
-            ->add(Crud::PAGE_DETAIL, $diagnoseProvisioning);
+            ->add(Crud::PAGE_DETAIL, $diagnoseProvisioning)
+            ->add(Crud::PAGE_DETAIL, $stopServer)
+            ->add(Crud::PAGE_DETAIL, $startServer);
     }
 
     public function configureFields(string $pageName): iterable
@@ -134,11 +152,11 @@ final class AdminServerCrudController extends AbstractCrudController
                 ->setRequired(false)
                 ->setTimezone('Europe/Warsaw'),
             TextField::new('lastError')->hideOnForm()->hideOnIndex(),
-            DateTimeField::new('startedAt')->hideOnForm(),
-            DateTimeField::new('endedAt')->hideOnForm(),
-            DateTimeField::new('lastRetryAt')->hideOnForm(),
+            DateTimeField::new('startedAt')->hideOnForm()->setTimezone('Europe/Warsaw'),
+            DateTimeField::new('endedAt')->hideOnForm()->setTimezone('Europe/Warsaw'),
+            DateTimeField::new('lastRetryAt')->hideOnForm()->setTimezone('Europe/Warsaw'),
             TextField::new('lastDiagnoseStatus')->hideOnForm()->hideOnIndex(),
-            DateTimeField::new('lastDiagnosedAt')->hideOnForm()->hideOnIndex(),
+            DateTimeField::new('lastDiagnosedAt')->hideOnForm()->hideOnIndex()->setTimezone('Europe/Warsaw'),
             TextareaField::new('lastDiagnoseLog')->hideOnForm()->hideOnIndex(),
             NumberField::new('runtimeHours', 'Runtime')
                 ->formatValue(static function ($value): string {
@@ -155,8 +173,8 @@ final class AdminServerCrudController extends AbstractCrudController
                     return sprintf('%02d days %02d:%02d hours', $days, $hours, $minutes);
                 })
                 ->hideOnForm(),
-            DateTimeField::new('createdAt')->hideOnForm(),
-            DateTimeField::new('updatedAt')->hideOnForm(),
+            DateTimeField::new('createdAt')->hideOnForm()->setTimezone('Europe/Warsaw'),
+            DateTimeField::new('updatedAt')->hideOnForm()->setTimezone('Europe/Warsaw'),
             CollectionField::new('operationLogs')->onlyOnDetail(),
         ];
     }
@@ -239,6 +257,90 @@ final class AdminServerCrudController extends AbstractCrudController
 
         $this->messageBus->dispatch(new DiagnoseServerMessage($server->getId()));
         $this->addFlash('success', 'Diagnose queued. Refresh this page in a moment to see results.');
+
+        return $this->redirect(
+            $this->adminUrlGenerator
+                ->unsetAll()
+                ->setController(self::class)
+                ->setAction(Action::DETAIL)
+                ->setEntityId($server->getId())
+                ->generateUrl()
+        );
+    }
+
+    #[Route('/admin/admin-server/{entityId}/stop', name: 'admin_admin_server_stop', methods: ['GET'])]
+    public function stopServer(string $entityId): RedirectResponse
+    {
+        $server = $this->entityManager->getRepository(Server::class)->find($entityId);
+        if (!$server instanceof Server) {
+            $this->addFlash('danger', 'Server not found.');
+
+            return $this->redirect(
+                $this->adminUrlGenerator
+                    ->unsetAll()
+                    ->setController(self::class)
+                    ->setAction(Action::INDEX)
+                    ->generateUrl()
+            );
+        }
+
+        if ($server->getStatus() !== ServerStatus::READY) {
+            $this->addFlash('warning', 'Stop is available only for running servers.');
+
+            return $this->redirect(
+                $this->adminUrlGenerator
+                    ->unsetAll()
+                    ->setController(self::class)
+                    ->setAction(Action::DETAIL)
+                    ->setEntityId($server->getId())
+                    ->generateUrl()
+            );
+        }
+
+        $this->messageBus->dispatch(new ManualStopServerMessage($server->getId()));
+        $this->addFlash('success', 'Stop queued. Refresh this page in a moment to see updates.');
+
+        return $this->redirect(
+            $this->adminUrlGenerator
+                ->unsetAll()
+                ->setController(self::class)
+                ->setAction(Action::DETAIL)
+                ->setEntityId($server->getId())
+                ->generateUrl()
+        );
+    }
+
+    #[Route('/admin/admin-server/{entityId}/start', name: 'admin_admin_server_start', methods: ['GET'])]
+    public function startServer(string $entityId): RedirectResponse
+    {
+        $server = $this->entityManager->getRepository(Server::class)->find($entityId);
+        if (!$server instanceof Server) {
+            $this->addFlash('danger', 'Server not found.');
+
+            return $this->redirect(
+                $this->adminUrlGenerator
+                    ->unsetAll()
+                    ->setController(self::class)
+                    ->setAction(Action::INDEX)
+                    ->generateUrl()
+            );
+        }
+
+        if ($server->getStatus() !== ServerStatus::STOPPED) {
+            $this->addFlash('warning', 'Start is available only for stopped servers.');
+
+            return $this->redirect(
+                $this->adminUrlGenerator
+                    ->unsetAll()
+                    ->setController(self::class)
+                    ->setAction(Action::DETAIL)
+                    ->setEntityId($server->getId())
+                    ->generateUrl()
+            );
+        }
+
+        $this->messageBus->dispatch(new StartServerMessage($server->getId()));
+        $this->addFlash('success', 'Start queued. Refresh this page in a moment to see updates.');
 
         return $this->redirect(
             $this->adminUrlGenerator

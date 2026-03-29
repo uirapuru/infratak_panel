@@ -76,6 +76,10 @@ final readonly class ServerProjectionHandler
             $server->setEndedAt($message->endedAt);
         }
 
+        if ($message->clearEndedAt) {
+            $server->setEndedAt(null);
+        }
+
         $log = new ServerOperationLog(
             $server,
             $message->logLevel,

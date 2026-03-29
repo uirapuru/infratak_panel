@@ -207,6 +207,29 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         $this->terminateInstance($cleanupInstanceId);
     }
 
+    public function startInstance(string $instanceId): void
+    {
+        $state = $this->getInstanceState($instanceId);
+
+        if (in_array($state, ['pending', 'running'], true)) {
+            return;
+        }
+
+        if (!in_array($state, ['stopped', 'stopping'], true)) {
+            throw new \RuntimeException(sprintf('EC2 instance %s cannot be started from state "%s".', $instanceId, $state));
+        }
+
+        try {
+            $this->ec2->startInstances([
+                'InstanceIds' => [$instanceId],
+            ]);
+        } catch (AwsException $exception) {
+            if (!$this->isIgnorableStartException($exception)) {
+                throw $exception;
+            }
+        }
+    }
+
     public function stopInstance(string $instanceId): void
     {
         $state = $this->getInstanceState($instanceId);
@@ -464,6 +487,11 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
     }
 
     private function isIgnorableStopException(AwsException $exception): bool
+    {
+        return in_array($exception->getAwsErrorCode(), ['IncorrectInstanceState'], true);
+    }
+
+    private function isIgnorableStartException(AwsException $exception): bool
     {
         return in_array($exception->getAwsErrorCode(), ['IncorrectInstanceState'], true);
     }

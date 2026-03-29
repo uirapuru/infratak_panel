@@ -30,6 +30,8 @@ interface AwsProvisioningClientInterface
 
     public function cleanupServer(string $serverName, ?string $instanceId, string $domain, string $portalDomain): void;
 
+    public function startInstance(string $instanceId): void;
+
     public function stopInstance(string $instanceId): void;
 
     public function terminateInstance(string $instanceId): void;

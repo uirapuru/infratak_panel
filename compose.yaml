@@ -10,6 +10,8 @@ services:
       AWS_REGION: ${AWS_REGION:-eu-central-1}
       AWS_SDK_LOAD_CONFIG: "1"
       AWS_EC2_METADATA_DISABLED: "true"
+      APP_TIMEZONE: Europe/Warsaw
+      TZ: Europe/Warsaw
     volumes:
       - ./:/app
       - ${HOME}/.aws:/root/.aws:ro
@@ -33,6 +35,8 @@ services:
       AWS_REGION: ${AWS_REGION:-eu-central-1}
       AWS_SDK_LOAD_CONFIG: "1"
       AWS_EC2_METADATA_DISABLED: "true"
+      APP_TIMEZONE: Europe/Warsaw
+      TZ: Europe/Warsaw
     volumes:
       - ./:/app
       - ${HOME}/.aws:/root/.aws:ro
@@ -56,6 +60,8 @@ services:
       AWS_REGION: ${AWS_REGION:-eu-central-1}
       AWS_SDK_LOAD_CONFIG: "1"
       AWS_EC2_METADATA_DISABLED: "true"
+      APP_TIMEZONE: Europe/Warsaw
+      TZ: Europe/Warsaw
     volumes:
       - ./:/app
       - ${HOME}/.aws:/root/.aws:ro
@@ -82,6 +88,7 @@ services:
       MARIADB_USER: ${MARIADB_USER:-app}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD:-app}
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root}
+      TZ: Europe/Warsaw
     healthcheck:
       test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-uroot", "-p${MARIADB_ROOT_PASSWORD:-root}"]
       interval: 10s

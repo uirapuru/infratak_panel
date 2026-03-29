@@ -21,6 +21,7 @@ final class ServerProjectionMessage
         public readonly bool $clearLastError,
         public readonly ?\DateTimeImmutable $startedAt = null,
         public readonly ?\DateTimeImmutable $endedAt = null,
+        public readonly bool $clearEndedAt = false,
         public readonly string $logLevel,
         public readonly string $logMessage,
         public readonly array $logContext = [],

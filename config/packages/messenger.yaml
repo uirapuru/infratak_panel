@@ -31,6 +31,8 @@ framework:
             App\Message\DeleteServerMessage: provisioning
             App\Message\DiagnoseServerMessage: provisioning
             App\Message\StopServerMessage: provisioning
+            App\Message\ManualStopServerMessage: provisioning
+            App\Message\StartServerMessage: provisioning
             App\Message\ServerProjectionMessage: projection
 
 # when@test:
