@@ -1,0 +1,49 @@
+
+###> symfony/framework-bundle ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+
+###> symfony/runtime ###
+/.phpunit.result.cache
+###< symfony/runtime ###
+
+###> doctrine/doctrine-bundle ###
+/*.sqlite
+/*.sqlite3
+/var/*.db
+###< doctrine/doctrine-bundle ###
+
+###> docker ###
+/.docker/
+/docker-compose.override.local.yml
+###< docker ###
+
+###> ide ###
+/.idea/
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+!/.vscode/tasks.json
+!/.vscode/launch.json
+###< ide ###
+
+###> os ###
+.DS_Store
+Thumbs.db
+###< os ###
+
+###> logs ###
+*.log
+###< logs ###
+
+###> frontend optional ###
+/node_modules/
+/npm-debug.log*
+/yarn-error.log*
+###< frontend optional ###

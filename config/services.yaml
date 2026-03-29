@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../vendor/symfony/dependency-injection/Loader/schema/services.schema.json
+
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+# See also https://symfony.com/doc/current/service_container/import.html
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+    aws.region: '%env(AWS_REGION)%'
+    aws.ec2.ami_id: '%env(AWS_EC2_AMI_ID)%'
+    aws.ec2.instance_type: '%env(AWS_EC2_INSTANCE_TYPE)%'
+    aws.route53.hosted_zone_id: '%env(AWS_ROUTE53_HOSTED_ZONE_ID)%'
+    aws.instance_profile_name: '%env(default::AWS_INSTANCE_PROFILE_NAME)%'
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+
+    Aws\Sdk:
+        arguments:
+            -
+                version: latest
+                region: '%aws.region%'
+
+    Aws\Ec2\Ec2Client:
+        factory: ['@Aws\Sdk', 'createEc2']
+
+    Aws\Route53\Route53Client:
+        factory: ['@Aws\Sdk', 'createRoute53']
+
+    Aws\Ssm\SsmClient:
+        factory: ['@Aws\Sdk', 'createSsm']
+
+    App\Service\Provisioning\AwsProvisioningClient:
+        arguments:
+            $amiId: '%aws.ec2.ami_id%'
+            $instanceType: '%aws.ec2.instance_type%'
+            $hostedZoneId: '%aws.route53.hosted_zone_id%'
+            $instanceProfileName: '%aws.instance_profile_name%'
+
+    App\Service\Provisioning\AwsProvisioningClientInterface: '@App\Service\Provisioning\AwsProvisioningClient'
+
+    # add more service definitions when explicit configuration is needed
+    # please note that last definitions always *replace* previous ones

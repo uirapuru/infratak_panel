@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Service\Provisioning;
+
+interface AwsProvisioningClientInterface
+{
+    public function createEc2Instance(string $serverName): string;
+
+    public function getInstancePublicIp(string $instanceId): ?string;
+
+    public function createDnsRecords(string $domain, string $portalDomain, string $ip): void;
+
+    public function sendProvisioningCommand(string $instanceId, string $domain, string $portalDomain): string;
+
+    public function sendCertbotCommand(string $instanceId, string $domain, string $portalDomain): string;
+
+    public function terminateInstance(string $instanceId): void;
+}
