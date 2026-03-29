@@ -34,11 +34,11 @@ use Doctrine\ORM\QueryBuilder;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FieldCollection;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FilterCollection;
 use EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext;
+use EasyCorp\Bundle\EasyAdminBundle\Config\KeyValueStore;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -136,7 +136,7 @@ final class AdminServerCrudController extends AbstractCrudController
             ->add(Crud::PAGE_DETAIL, $resetAdminPassword);
     }
 
-    public function detail(AdminContext $context): Response
+    public function detail(AdminContext $context): KeyValueStore
     {
         $entity = $context->getEntity()->getInstance();
         if ($entity instanceof Server) {
@@ -166,7 +166,19 @@ final class AdminServerCrudController extends AbstractCrudController
             IdField::new('id')
                 ->hideOnForm(),
             TextField::new('name'),
-            TextField::new('domain')->hideOnForm(),
+            TextField::new('domain')
+                ->hideOnForm()
+                ->setColumns(12)
+                ->renderAsHtml()
+                ->formatValue(static function ($value): string {
+                    if (!is_string($value) || $value === '') {
+                        return '';
+                    }
+
+                    $safeHost = htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+                    return sprintf('<a href="https://%1$s" target="_blank" rel="noopener noreferrer">%1$s</a>', $safeHost);
+                }),
             ChoiceField::new('status')
                 ->setChoices($statusChoices)
                 ->hideOnForm(),
@@ -175,7 +187,20 @@ final class AdminServerCrudController extends AbstractCrudController
                 ->hideOnForm(),
             TextField::new('awsInstanceId')->hideOnForm(),
             TextField::new('publicIp')->hideOnForm(),
-            TextField::new('portalDomain')->hideOnForm()->hideOnIndex(),
+            TextField::new('portalDomain')
+                ->hideOnForm()
+                ->hideOnIndex()
+                ->setColumns(12)
+                ->renderAsHtml()
+                ->formatValue(static function ($value): string {
+                    if (!is_string($value) || $value === '') {
+                        return '';
+                    }
+
+                    $safeHost = htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+                    return sprintf('<a href="https://%1$s" target="_blank" rel="noopener noreferrer">%1$s</a>', $safeHost);
+                }),
             DateTimeField::new('sleepAt', 'Sleep At')
                 ->setRequired(false)
                 ->setTimezone('Europe/Warsaw'),
@@ -420,7 +445,7 @@ final class AdminServerCrudController extends AbstractCrudController
             origin: 'manual-reset',
         ));
 
-        $this->addFlash('success', 'Admin password reset queued. Open details again in a moment to see one-time password.');
+        $this->addFlash('success', sprintf('Admin password reset queued. One-time password: %s', $newPassword));
 
         return $this->redirect(
             $this->adminUrlGenerator

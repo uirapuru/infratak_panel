@@ -61,7 +61,8 @@ final readonly class StartServerHandler
 
         try {
             $this->aws->startInstance($instanceId);
-            $publicIp = $this->aws->getInstancePublicIp($instanceId);
+            $publicIp = $this->resolvePublicIpAfterStart($instanceId);
+            $this->aws->createDnsRecords($server->getDomain(), $server->getPortalDomain(), $publicIp);
 
             $this->dispatchProjection(
                 serverId: $server->getId(),
@@ -81,6 +82,7 @@ final readonly class StartServerHandler
                 logContext: [
                     'target' => 'manual',
                     'instanceId' => $instanceId,
+                    'publicIp' => $publicIp,
                 ],
             );
         } catch (\Throwable $exception) {
@@ -113,6 +115,20 @@ final readonly class StartServerHandler
 
             throw $exception;
         }
+    }
+
+    private function resolvePublicIpAfterStart(string $instanceId): string
+    {
+        for ($attempt = 0; $attempt < 18; ++$attempt) {
+            $publicIp = $this->aws->getInstancePublicIp($instanceId);
+            if ($publicIp !== null && $publicIp !== '') {
+                return $publicIp;
+            }
+
+            sleep(5);
+        }
+
+        throw new \RuntimeException(sprintf('Public IP was not assigned for instance %s after start.', $instanceId));
     }
 
     /**

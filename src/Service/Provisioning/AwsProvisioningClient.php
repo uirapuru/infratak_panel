@@ -210,7 +210,7 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
     public function rotateOtsAdminPassword(string $instanceId, string $oldPassword, string $newPassword): void
     {
         $commands = [
-            'set -euo pipefail',
+            'set -eu',
             'COOKIE_FILE=$(mktemp)',
             'trap "rm -f \"$COOKIE_FILE\"" EXIT',
             sprintf('OLD_PASSWORD=%s', escapeshellarg($oldPassword)),

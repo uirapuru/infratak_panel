@@ -39,10 +39,12 @@ final readonly class RotateAdminPasswordHandler
         try {
             $this->aws->rotateOtsAdminPassword($instanceId, $message->oldPassword, $message->newPassword);
 
+            $pendingReveal = $message->origin === 'manual-reset' ? null : $message->newPassword;
+
             $server
                 ->setOtsAdminPasswordPrevious($message->oldPassword)
                 ->setOtsAdminPasswordCurrent($message->newPassword)
-                ->setOtsAdminPasswordPendingReveal($message->newPassword)
+                ->setOtsAdminPasswordPendingReveal($pendingReveal)
                 ->setOtsAdminPasswordRotatedAt(new \DateTimeImmutable())
                 ->setLastError(null);
 
