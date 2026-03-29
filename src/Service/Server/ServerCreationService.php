@@ -68,6 +68,10 @@ final readonly class ServerCreationService
             ->setPublicIp(null)
             ->setStartedAt(null)
             ->setEndedAt(null)
+            ->setOtsAdminPasswordPrevious($server->getOtsAdminPasswordCurrent())
+            ->setOtsAdminPasswordCurrent('password')
+            ->setOtsAdminPasswordPendingReveal(null)
+            ->setOtsAdminPasswordRotatedAt(null)
             ->setLastError(null);
     }
 

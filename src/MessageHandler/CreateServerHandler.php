@@ -6,11 +6,13 @@ namespace App\MessageHandler;
 
 use App\Enum\ServerStatus;
 use App\Message\CreateServerMessage;
+use App\Message\RotateAdminPasswordMessage;
 use App\Message\ServerProjectionMessage;
 use App\Repository\ServerRepository;
 use App\Service\Provisioning\FinalException;
 use App\Service\Provisioning\ProvisioningOrchestrator;
 use App\Service\Provisioning\RetryableProvisioningException;
+use App\Service\Security\OtsAdminPasswordGenerator;
 use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -28,6 +30,7 @@ final readonly class CreateServerHandler
         private ServerRepository $serverRepository,
         private ProvisioningOrchestrator $orchestrator,
         private MessageBusInterface $messageBus,
+        private OtsAdminPasswordGenerator $passwordGenerator,
         private LoggerInterface $logger,
     ) {
     }
@@ -68,6 +71,23 @@ final readonly class CreateServerHandler
 
             if (!$finished && $server->getStatus() !== ServerStatus::READY) {
                 $this->redispatch($message->serverId, 0, 2_000);
+            }
+
+            if (
+                $finished
+                && $server->getStatus() === ServerStatus::READY
+                && $server->getAwsInstanceId() !== null
+                && $server->getOtsAdminPasswordRotatedAt() === null
+            ) {
+                $oldPassword = $server->getOtsAdminPasswordCurrent() ?? 'password';
+                $newPassword = $this->passwordGenerator->generate();
+
+                $this->messageBus->dispatch(new RotateAdminPasswordMessage(
+                    serverId: $server->getId(),
+                    oldPassword: $oldPassword,
+                    newPassword: $newPassword,
+                    origin: 'post-provisioning',
+                ));
             }
         } catch (RetryableProvisioningException $exception) {
             $this->handleRetry($message, $exception);

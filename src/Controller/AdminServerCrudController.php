@@ -10,7 +10,9 @@ use App\Enum\ServerStep;
 use App\Message\CreateServerMessage;
 use App\Message\DiagnoseServerMessage;
 use App\Message\ManualStopServerMessage;
+use App\Message\RotateAdminPasswordMessage;
 use App\Message\StartServerMessage;
+use App\Service\Security\OtsAdminPasswordGenerator;
 use App\Service\Server\ServerCreationService;
 use App\Service\Server\ServerDeletionService;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
@@ -31,10 +33,12 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\QueryBuilder;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FieldCollection;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FilterCollection;
+use EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -46,6 +50,7 @@ final class AdminServerCrudController extends AbstractCrudController
         private readonly MessageBusInterface $messageBus,
         private readonly ServerCreationService $serverCreationService,
         private readonly ServerDeletionService $serverDeletionService,
+        private readonly OtsAdminPasswordGenerator $passwordGenerator,
     ) {
     }
 
@@ -110,6 +115,12 @@ final class AdminServerCrudController extends AbstractCrudController
                 'entityId' => $server->getId(),
             ]);
 
+        $resetAdminPassword = Action::new('resetAdminPassword', 'Reset admin password')
+            ->displayIf(static fn (Server $server): bool => in_array($server->getStatus(), [ServerStatus::READY, ServerStatus::STOPPED], true))
+            ->linkToRoute('admin_admin_server_reset_admin_password', static fn (Server $server): array => [
+                'entityId' => $server->getId(),
+            ]);
+
         return $actions
             ->disable(Action::EDIT)
             ->add(Crud::PAGE_INDEX, Action::DETAIL)
@@ -117,10 +128,27 @@ final class AdminServerCrudController extends AbstractCrudController
             ->add(Crud::PAGE_INDEX, $diagnoseProvisioning)
             ->add(Crud::PAGE_INDEX, $stopServer)
             ->add(Crud::PAGE_INDEX, $startServer)
+            ->add(Crud::PAGE_INDEX, $resetAdminPassword)
             ->add(Crud::PAGE_DETAIL, $retryProvisioning)
             ->add(Crud::PAGE_DETAIL, $diagnoseProvisioning)
             ->add(Crud::PAGE_DETAIL, $stopServer)
-            ->add(Crud::PAGE_DETAIL, $startServer);
+            ->add(Crud::PAGE_DETAIL, $startServer)
+            ->add(Crud::PAGE_DETAIL, $resetAdminPassword);
+    }
+
+    public function detail(AdminContext $context): Response
+    {
+        $entity = $context->getEntity()->getInstance();
+        if ($entity instanceof Server) {
+            $passwordToReveal = $entity->getOtsAdminPasswordPendingReveal();
+            if ($passwordToReveal !== null && $passwordToReveal !== '') {
+                $this->addFlash('warning', sprintf('OpenTAK admin password (shown once): %s', $passwordToReveal));
+                $entity->setOtsAdminPasswordPendingReveal(null);
+                $this->entityManager->flush();
+            }
+        }
+
+        return parent::detail($context);
     }
 
     public function configureFields(string $pageName): iterable
@@ -341,6 +369,58 @@ final class AdminServerCrudController extends AbstractCrudController
 
         $this->messageBus->dispatch(new StartServerMessage($server->getId()));
         $this->addFlash('success', 'Start queued. Refresh this page in a moment to see updates.');
+
+        return $this->redirect(
+            $this->adminUrlGenerator
+                ->unsetAll()
+                ->setController(self::class)
+                ->setAction(Action::DETAIL)
+                ->setEntityId($server->getId())
+                ->generateUrl()
+        );
+    }
+
+    #[Route('/admin/admin-server/{entityId}/reset-admin-password', name: 'admin_admin_server_reset_admin_password', methods: ['GET'])]
+    public function resetAdminPassword(string $entityId): RedirectResponse
+    {
+        $server = $this->entityManager->getRepository(Server::class)->find($entityId);
+        if (!$server instanceof Server) {
+            $this->addFlash('danger', 'Server not found.');
+
+            return $this->redirect(
+                $this->adminUrlGenerator
+                    ->unsetAll()
+                    ->setController(self::class)
+                    ->setAction(Action::INDEX)
+                    ->generateUrl()
+            );
+        }
+
+        $instanceId = $server->getAwsInstanceId();
+        if ($instanceId === null || $instanceId === '') {
+            $this->addFlash('warning', 'Admin password reset requires an EC2 instance id.');
+
+            return $this->redirect(
+                $this->adminUrlGenerator
+                    ->unsetAll()
+                    ->setController(self::class)
+                    ->setAction(Action::DETAIL)
+                    ->setEntityId($server->getId())
+                    ->generateUrl()
+            );
+        }
+
+        $oldPassword = $server->getOtsAdminPasswordCurrent() ?? 'password';
+        $newPassword = $this->passwordGenerator->generate();
+
+        $this->messageBus->dispatch(new RotateAdminPasswordMessage(
+            serverId: $server->getId(),
+            oldPassword: $oldPassword,
+            newPassword: $newPassword,
+            origin: 'manual-reset',
+        ));
+
+        $this->addFlash('success', 'Admin password reset queued. Open details again in a moment to see one-time password.');
 
         return $this->redirect(
             $this->adminUrlGenerator

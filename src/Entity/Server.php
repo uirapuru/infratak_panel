@@ -104,6 +104,18 @@ class Server
     #[Groups(['server:read'])]
     private ?\DateTimeImmutable $lastDiagnosedAt = null;
 
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $otsAdminPasswordCurrent = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $otsAdminPasswordPrevious = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $otsAdminPasswordPendingReveal = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $otsAdminPasswordRotatedAt = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Groups(['server:read'])]
     private \DateTimeImmutable $createdAt;
@@ -350,6 +362,58 @@ class Server
     public function getUpdatedAt(): \DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    public function getOtsAdminPasswordCurrent(): ?string
+    {
+        return $this->otsAdminPasswordCurrent;
+    }
+
+    public function setOtsAdminPasswordCurrent(?string $otsAdminPasswordCurrent): self
+    {
+        $this->otsAdminPasswordCurrent = $otsAdminPasswordCurrent;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getOtsAdminPasswordPrevious(): ?string
+    {
+        return $this->otsAdminPasswordPrevious;
+    }
+
+    public function setOtsAdminPasswordPrevious(?string $otsAdminPasswordPrevious): self
+    {
+        $this->otsAdminPasswordPrevious = $otsAdminPasswordPrevious;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getOtsAdminPasswordPendingReveal(): ?string
+    {
+        return $this->otsAdminPasswordPendingReveal;
+    }
+
+    public function setOtsAdminPasswordPendingReveal(?string $otsAdminPasswordPendingReveal): self
+    {
+        $this->otsAdminPasswordPendingReveal = $otsAdminPasswordPendingReveal;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getOtsAdminPasswordRotatedAt(): ?\DateTimeImmutable
+    {
+        return $this->otsAdminPasswordRotatedAt;
+    }
+
+    public function setOtsAdminPasswordRotatedAt(?\DateTimeImmutable $otsAdminPasswordRotatedAt): self
+    {
+        $this->otsAdminPasswordRotatedAt = $otsAdminPasswordRotatedAt;
+        $this->markUpdated();
+
+        return $this;
     }
 
     #[Groups(['server:read'])]

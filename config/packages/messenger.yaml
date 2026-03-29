@@ -33,6 +33,7 @@ framework:
             App\Message\StopServerMessage: provisioning
             App\Message\ManualStopServerMessage: provisioning
             App\Message\StartServerMessage: provisioning
+            App\Message\RotateAdminPasswordMessage: provisioning
             App\Message\ServerProjectionMessage: projection
 
 # when@test:
