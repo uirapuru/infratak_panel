@@ -19,11 +19,11 @@ final class ServerProjectionMessage
         public readonly bool $clearPublicIp,
         public readonly ?string $lastError,
         public readonly bool $clearLastError,
+        public readonly string $logLevel,
+        public readonly string $logMessage,
         public readonly ?\DateTimeImmutable $startedAt = null,
         public readonly ?\DateTimeImmutable $endedAt = null,
         public readonly bool $clearEndedAt = false,
-        public readonly string $logLevel,
-        public readonly string $logMessage,
         public readonly array $logContext = [],
     ) {
     }

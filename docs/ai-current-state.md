@@ -7,13 +7,41 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
 - Preliminary pricing (MVP): see `docs/pricing-mvp.md`
 - Payments model (MVP): see `docs/payments-mvp.md`
 
+## Deployment and Provisioning Makefiles
+
+Two separate Makefiles are used on purpose:
+
+1. `Makefile` (root) — application deployment only
+  - scope: landing + admin runtime on an existing host
+  - uses: `compose.prod.yml`, `.env.deploy`
+  - typical targets: `setup`, `deploy-prod`, `tls-status`, `tls-renew`, `deploy-logs`
+
+2. `Makefile.infra` (root) — AWS infrastructure provisioning only
+  - scope: create/manage single EC2 host for the app
+  - uses: AWS CLI, `.env.infra`, `user-data.sh`
+  - typical targets: `create-instance`, `get-ip`, `status`, `destroy-instance`
+
+Important separation:
+- do not mix infrastructure provisioning with application deploy logic
+- do not modify `infra/provisioning` for panel/landing deployment tasks
+
 ## Admin Panel Authentication
 
 - Form login at `/admin/login`, logout at `/admin/logout`.
+- Production access path: `https://infratak.com/admin` (HTTPS on landing nginx, then proxy to admin nginx).
 - Roles: `ROLE_ADMIN` (full panel access), `ROLE_SUPER_ADMIN` (+ user management).
 - Role hierarchy: `ROLE_SUPER_ADMIN → ROLE_ADMIN → ROLE_USER`.
 - User management CRUD available in the panel under "Administracja → Użytkownicy" (visible only to `ROLE_SUPER_ADMIN`).
 - New users via console: `php bin/console app:admin:create-user <email> <password> [--super-admin]`
+- Password reset via console: `php bin/console app:admin:set-password <email> <password>`
+
+### Production operations
+
+Create admin user on production host:
+`docker compose --env-file .env.deploy -f compose.prod.yml exec -T admin_php php bin/console app:admin:create-user <email> <password>`
+
+Reset password for existing admin user on production host:
+`docker compose --env-file .env.deploy -f compose.prod.yml exec -T admin_php php bin/console app:admin:set-password <email> <password>`
 
 ### Local dev default user
 

@@ -6,6 +6,37 @@ Krótka instrukcja operacyjna do diagnozowania problemów z workerami, kolejkami
 
 ---
 
+## 0. Którego Makefile używać
+
+W repo są dwa osobne pliki i mają różny cel:
+
+1. `Makefile` (root) — deployment aplikacji (landing + admin) na istniejącej infrastrukturze
+   * używa `compose.prod.yml` i `.env.deploy`
+   * przykładowe komendy:
+
+```bash
+make deploy
+make deploy-logs
+```
+
+2. `Makefile.infra` (root) — provisioning infrastruktury AWS (EC2)
+   * używa AWS CLI, `user-data.sh` i `.env.infra`
+   * przykładowe komendy:
+
+```bash
+make -f Makefile.infra create-instance
+make -f Makefile.infra get-ip
+make -f Makefile.infra status
+```
+
+Zasada:
+
+* najpierw `Makefile.infra` (gdy nie ma serwera)
+* potem `Makefile` (wdrożenie aplikacji na utworzony serwer)
+* nie mieszać tego z `infra/provisioning` (to inny obszar odpowiedzialności)
+
+---
+
 ## 1. Aktualna topologia kolejek
 
 Biznesowe kolejki AMQP są dwie:

@@ -3,6 +3,8 @@
 /.env.local
 /.env.local.php
 /.env.*.local
+/.env.deploy
+/.env.infra
 /config/secrets/prod/prod.decrypt.private.php
 /public/bundles/
 /var/
@@ -23,6 +25,7 @@
 /.docker/
 /docker-compose.override.local.yml
 /docker/nginx/.htpasswd
+/.server-ip
 ###< docker ###
 
 ###> ide ###

@@ -2,10 +2,23 @@
 
 ## Najwyzszy priorytet
 
-1. ~~Zaimplementowac logowanie uzytkownika i schowac panel admina za Symfony Firewall.~~ **DONE**
-- ~~Dostep do tras admina tylko dla zalogowanych uzytkownikow.~~
-- ~~Docelowo dodac role i ograniczenia uprawnien (minimum `ROLE_ADMIN` dla panelu).~~
-- ~~Dodac bezpieczny flow logowania/wylogowania oraz ochrone przed brute-force.~~ (nginx rate-limit + basic auth w prod)
+1. Uruchomic produkcyjnie certyfikat Let's Encrypt i domknac automatyczne odnowienia.
+- Potwierdzic, ze `make tls-status` pokazuje issuer Let's Encrypt (nie self-signed).
+- Ustawic i zweryfikowac cykliczne odnowienie (np. cron/systemd timer wywolujacy `make tls-renew`).
+- Dodac test po odnowieniu: `curl -I https://infratak.com` + walidacja dat certyfikatu.
+
+2. Uruchomic wysylanie emaili produkcyjnych (Symfony Mailer).
+- Skonfigurowac docelowy provider SMTP/API i poprawny `MAILER_DSN` w `.env.deploy`.
+- Dodac i zweryfikowac DNS: SPF, DKIM, DMARC dla domeny nadawcy.
+- Dodac test end-to-end (email testowy z aplikacji) i checklist operacyjny (retry, logi, monitoring bledow).
+
+## Zrobione (usuniete z aktywnego backlogu)
+
+- Logowanie i ochrona panelu admina (Symfony security + nginx rate-limit/basic auth).
+- Stabilizacja deployu: sync kodu na istniejaca instancje, brak `down` przed `up`, zachowanie danych bazy.
+- Podzial komend: `make setup` (jednorazowo) i `make deploy-prod` (codziennie).
+- TLS helpery operacyjne: `make tls-status`, `make tls-renew`.
+- AWS SDK credentials z profilami na panelu (mount `var/share/.aws` do kontenerow + fallback z lokalnego `~/.aws`, zweryfikowane STS `GetCallerIdentity`).
 
 ## OpenTAK integration po provisioningu
 

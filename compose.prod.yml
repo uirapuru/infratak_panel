@@ -19,6 +19,8 @@ services:
       dockerfile: docker/php/Dockerfile
     restart: unless-stopped
     working_dir: /app
+    env_file:
+      - .env.deploy
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
@@ -31,6 +33,7 @@ services:
     volumes:
       - ./:/app:ro
       - landing_php_cache:/app/var/cache
+      - ./var/share/.aws:/root/.aws:ro
       - ./var/log:/var/log/infratak
     depends_on:
       mariadb:
@@ -42,12 +45,15 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "80:80"
+      - "443:443"
     depends_on:
       - landing_php
     volumes:
       - ./:/app:ro
       - ./docker/nginx/conf.d/landing.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./var/letsencrypt:/etc/letsencrypt:ro
+      - ./var/certbot:/var/www/certbot:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/health"]
       interval: 15s
@@ -62,6 +68,8 @@ services:
       dockerfile: docker/php/Dockerfile
     restart: unless-stopped
     working_dir: /app
+    env_file:
+      - .env.deploy
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
@@ -74,6 +82,7 @@ services:
     volumes:
       - ./:/app:ro
       - admin_php_cache:/app/var/cache
+      - ./var/share/.aws:/root/.aws:ro
       - ./var/log:/var/log/infratak
     depends_on:
       mariadb:
@@ -112,6 +121,8 @@ services:
     restart: unless-stopped
     working_dir: /app
     command: php bin/console messenger:consume provisioning --time-limit=3600 --memory-limit=256M
+    env_file:
+      - .env.deploy
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
@@ -123,6 +134,7 @@ services:
     volumes:
       - ./:/app:ro
       - worker_provisioning_cache:/app/var/cache
+      - ./var/share/.aws:/root/.aws:ro
       - ./var/log:/var/log/infratak
     depends_on:
       mariadb:
@@ -137,6 +149,8 @@ services:
     restart: unless-stopped
     working_dir: /app
     command: php bin/console messenger:consume projection --time-limit=3600 --memory-limit=256M
+    env_file:
+      - .env.deploy
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
@@ -148,6 +162,7 @@ services:
     volumes:
       - ./:/app:ro
       - worker_projection_cache:/app/var/cache
+      - ./var/share/.aws:/root/.aws:ro
       - ./var/log:/var/log/infratak
     depends_on:
       mariadb:
