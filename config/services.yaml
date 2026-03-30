@@ -7,6 +7,8 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    app.base_domain: '%env(APP_BASE_DOMAIN)%'
+    app.certbot_email: '%env(APP_CERTBOT_EMAIL)%'
     aws.region: '%env(AWS_REGION)%'
     aws.ec2.ami_id: '%env(AWS_EC2_AMI_ID)%'
     aws.ec2.instance_type: '%env(AWS_EC2_INSTANCE_TYPE)%'
@@ -58,6 +60,12 @@ services:
         arguments:
             $projectDir: '%kernel.project_dir%'
             $provisioningSubmodulePath: '%provisioning.submodule_path%'
+            $baseDomain: '%app.base_domain%'
+            $certbotEmail: '%app.certbot_email%'
+
+    App\Service\Server\ServerCreationService:
+        arguments:
+            $baseDomain: '%app.base_domain%'
 
     App\Service\Provisioning\AwsProvisioningClient:
         arguments:

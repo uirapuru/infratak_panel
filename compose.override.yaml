@@ -8,18 +8,21 @@ services:
     environment:
       APP_ENV: dev
       APP_DEBUG: "1"
+      MAILER_DSN: smtp://mailcatcher:1025
       TZ: Europe/Warsaw
 
   worker_provisioning:
     environment:
       APP_ENV: dev
       APP_DEBUG: "1"
+      MAILER_DSN: smtp://mailcatcher:1025
       TZ: Europe/Warsaw
 
   worker_projection:
     environment:
       APP_ENV: dev
       APP_DEBUG: "1"
+      MAILER_DSN: smtp://mailcatcher:1025
       TZ: Europe/Warsaw
 
   mariadb:
@@ -32,3 +35,8 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+
+  mailcatcher:
+    image: axllent/mailpit:latest
+    ports:
+      - "1080:8025"

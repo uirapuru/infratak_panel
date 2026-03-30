@@ -9,6 +9,8 @@ final readonly class SubmoduleProvisioningAssets
     public function __construct(
         private string $projectDir,
         private string $provisioningSubmodulePath,
+        private string $baseDomain,
+        private string $certbotEmail,
     ) {
     }
 
@@ -28,7 +30,11 @@ final readonly class SubmoduleProvisioningAssets
         }
 
         $commands[] = 'chmod +x /home/ubuntu/provisioning.sh';
-        $commands[] = sprintf('bash -eux /home/ubuntu/provisioning.sh %s', escapeshellarg($serverName));
+        $commands[] = sprintf(
+            'BASE_DOMAIN=%s bash -eux /home/ubuntu/provisioning.sh %s',
+            escapeshellarg($this->normalizedBaseDomain()),
+            escapeshellarg($serverName),
+        );
 
         return $commands;
     }
@@ -40,7 +46,12 @@ final readonly class SubmoduleProvisioningAssets
     {
         return [
             'set -eux',
-            sprintf('certbot --nginx -d %s -d %s --non-interactive --agree-tos -m admin@calbal.net', $domain, $portalDomain),
+            sprintf(
+                'certbot --nginx -d %s -d %s --non-interactive --agree-tos -m %s',
+                $domain,
+                $portalDomain,
+                escapeshellarg($this->certbotEmail),
+            ),
             sprintf(
                 'sed -i %s /etc/nginx/sites-available/ots_https /etc/nginx/sites-available/ots_certificate_enrollment',
                 escapeshellarg(sprintf(
@@ -161,5 +172,10 @@ final readonly class SubmoduleProvisioningAssets
         $delimiter = 'INFRATAK_EOF';
 
         return sprintf("cat > %s <<'%s'\n%s\n%s", $targetPath, $delimiter, $contents, $delimiter);
+    }
+
+    private function normalizedBaseDomain(): string
+    {
+        return trim(strtolower($this->baseDomain), " \t\n\r\0\x0B.");
     }
 }

@@ -1,5 +1,12 @@
 # TODO
 
+## Najwyzszy priorytet
+
+1. Zaimplementowac logowanie uzytkownika i schowac panel admina za Symfony Firewall.
+- Dostep do tras admina tylko dla zalogowanych uzytkownikow.
+- Docelowo dodac role i ograniczenia uprawnien (minimum `ROLE_ADMIN` dla panelu).
+- Dodac bezpieczny flow logowania/wylogowania oraz ochrone przed brute-force.
+
 ## OpenTAK integration po provisioningu
 
 1. Po zakończeniu provisioningu przez API OpenTAKServer ma się utworzyć konto z hasłem podanym podczas tworzenia serwera.

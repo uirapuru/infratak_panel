@@ -21,6 +21,7 @@ final readonly class ServerCreationService
         private EntityManagerInterface $entityManager,
         private MessageBusInterface $messageBus,
         private ServerRepository $serverRepository,
+        private string $baseDomain,
     ) {
     }
 
@@ -60,8 +61,8 @@ final readonly class ServerCreationService
 
         $server
             ->setName($name)
-            ->setDomain(sprintf('%s.calbal.net', $name))
-            ->setPortalDomain(sprintf('portal.%s.calbal.net', $name))
+            ->setDomain(sprintf('%s.%s', $name, $this->normalizedBaseDomain()))
+            ->setPortalDomain(sprintf('portal.%s.%s', $name, $this->normalizedBaseDomain()))
             ->setStatus(ServerStatus::CREATING)
             ->setStep(ServerStep::EC2)
             ->setAwsInstanceId(null)
@@ -73,6 +74,11 @@ final readonly class ServerCreationService
             ->setOtsAdminPasswordPendingReveal(null)
             ->setOtsAdminPasswordRotatedAt(null)
             ->setLastError(null);
+    }
+
+    private function normalizedBaseDomain(): string
+    {
+        return trim(strtolower($this->baseDomain), " \t\n\r\0\x0B.");
     }
 
     private function scheduleSleepIfNeeded(Server $server): void
