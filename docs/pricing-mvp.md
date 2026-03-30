@@ -13,6 +13,59 @@
 
 # Pakiety
 
+## 0. FREE DEMO (OTS + onboarding portal)
+
+**Cena:** 0 PLN  
+**Czas trwania:** 1 godzina  
+
+**Parametry:**
+- instancja: t3.small
+- użytkownicy: do 3
+- video:
+  - max 1 stream
+  - max 2 odbiorców
+  - profil: ~500 kbps / 480p
+
+---
+
+### Co klient dostaje:
+
+- natychmiastowy dostęp (portal onboarding)
+- gotowy serwer ATAK (OTS)
+- możliwość przetestowania:
+  - mapy i COP
+  - chat
+  - podstawowy video stream
+
+---
+
+### Ograniczenia:
+
+- czas działania: 1 godzina (auto shutdown)
+- tylko 1 aktywna sesja na użytkownika
+- ograniczona wydajność
+- brak SLA
+- brak wsparcia technicznego
+- możliwy cooldown (np. 12h)
+
+---
+
+### Najlepsze zastosowanie:
+
+- szybkie demo dla klienta
+- onboarding nowych użytkowników
+- test przed zakupem
+
+---
+
+### Uwagi techniczne:
+
+- środowisko współdzielone lub ephemeral
+- dane mogą zostać usunięte po zakończeniu
+- brak gwarancji trwałości danych
+
+---
+
 ## 1. STANDARD (bez video)
 
 **Cena:** 49-79 PLN / dzień  

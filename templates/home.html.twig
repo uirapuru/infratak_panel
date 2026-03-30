@@ -1,0 +1,225 @@
+{% extends 'base.html.twig' %}
+
+{% trans_default_domain 'landing' %}
+
+{% block title %}{{ 'meta.title'|trans }}{% endblock %}
+
+{% block body %}
+<div class="container py-3 py-md-4">
+    <div class="d-flex justify-content-end mb-3">
+        <div class="surface-card px-2 py-1 d-inline-flex gap-1">
+            <a
+                href="{{ path(app.request.attributes.get('_route') == 'home' ? 'home' : 'home_localized', {'_locale': 'pl'}) }}"
+                class="btn btn-sm {{ app.request.locale == 'pl' ? 'btn-accent' : 'btn-outline-info' }}"
+                lang="pl"
+                hreflang="pl"
+                aria-label="Polski"
+            >🇵🇱 PL</a>
+            <a
+                href="{{ path('home_localized', {'_locale': 'en'}) }}"
+                class="btn btn-sm {{ app.request.locale == 'en' ? 'btn-accent' : 'btn-outline-info' }}"
+                lang="en"
+                hreflang="en"
+                aria-label="English"
+            >🇬🇧 EN</a>
+        </div>
+    </div>
+
+    <header class="hero">
+        <span class="badge badge-soft px-3 py-2 mb-3">{{ 'hero.badge'|trans }}</span>
+        <h1 class="display-5 fw-bold mb-3">{{ 'hero.title'|trans }}</h1>
+        <p class="text-muted-custom fs-5 mb-4">{{ 'hero.subtitle'|trans }}</p>
+        <a href="mailto:kontakt@infratak.pl?subject=Request%20demo" class="btn btn-accent btn-lg px-4">{{ 'hero.cta'|trans }}</a>
+    </header>
+
+    <section class="section-pad" id="offer">
+        <h2 class="section-title">{{ 'offer.title'|trans }}</h2>
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <article class="surface-card p-4">
+                    <h3 class="h5 fw-semibold mb-3">{{ 'offer.kits.title'|trans }}</h3>
+                    <p class="text-muted-custom mb-0">{{ 'offer.kits.desc'|trans }}</p>
+                </article>
+            </div>
+            <div class="col-12 col-md-4">
+                <article class="surface-card p-4">
+                    <h3 class="h5 fw-semibold mb-3">{{ 'offer.server.title'|trans }}</h3>
+                    <p class="text-muted-custom mb-0">{{ 'offer.server.desc'|trans }}</p>
+                </article>
+            </div>
+            <div class="col-12 col-md-4">
+                <article class="surface-card p-4">
+                    <h3 class="h5 fw-semibold mb-3">{{ 'offer.training.title'|trans }}</h3>
+                    <p class="text-muted-custom mb-0">{{ 'offer.training.desc'|trans }}</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-pad" id="how-it-works">
+        <h2 class="section-title">{{ 'how.title'|trans }}</h2>
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <article class="surface-card p-4">
+                    <p class="text-uppercase small text-info mb-2">{{ 'how.step1.label'|trans }}</p>
+                    <h3 class="h5 fw-semibold mb-3">{{ 'how.step1.title'|trans }}</h3>
+                    <p class="text-muted-custom mb-0">{{ 'how.step1.desc'|trans }}</p>
+                </article>
+            </div>
+            <div class="col-12 col-md-4">
+                <article class="surface-card p-4">
+                    <p class="text-uppercase small text-info mb-2">{{ 'how.step2.label'|trans }}</p>
+                    <h3 class="h5 fw-semibold mb-3">{{ 'how.step2.title'|trans }}</h3>
+                    <p class="text-muted-custom mb-0">{{ 'how.step2.desc'|trans }}</p>
+                </article>
+            </div>
+            <div class="col-12 col-md-4">
+                <article class="surface-card p-4">
+                    <p class="text-uppercase small text-info mb-2">{{ 'how.step3.label'|trans }}</p>
+                    <h3 class="h5 fw-semibold mb-3">{{ 'how.step3.title'|trans }}</h3>
+                    <p class="text-muted-custom mb-0">{{ 'how.step3.desc'|trans }}</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-pad" id="target-users">
+        <h2 class="section-title">{{ 'users.title'|trans }}</h2>
+        <article class="surface-card p-4 p-md-5">
+            <ul class="list-clean text-muted-custom mb-0">
+                <li>{{ 'users.item1'|trans }}</li>
+                <li>{{ 'users.item2'|trans }}</li>
+                <li>{{ 'users.item3'|trans }}</li>
+                <li>{{ 'users.item4'|trans }}</li>
+            </ul>
+        </article>
+    </section>
+
+    <section class="section-pad" id="pricing">
+        <h2 class="section-title">{{ 'pricing.title'|trans }}</h2>
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0">
+                <thead>
+                    <tr class="border-bottom" style="border-color: var(--border);">
+                        <th class="text-uppercase small fw-bold" style="color: var(--accent);">{{ 'pricing.packages.free.name'|trans }}</th>
+                        <th class="text-uppercase small fw-bold" style="color: var(--accent);">Cena / Czas</th>
+                        <th class="text-uppercase small fw-bold" style="color: var(--accent);">Funkcjonalność</th>
+                        <th class="text-uppercase small fw-bold" style="color: var(--accent);">Ograniczenia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-color: var(--border);">
+                        <td class="fw-semibold align-top">
+                            <div>{{ 'pricing.packages.free.name'|trans }}</div>
+                            <div class="small text-muted-custom">{{ 'pricing.packages.free.price'|trans }} / {{ 'pricing.packages.free.duration'|trans }}</div>
+                        </td>
+                        <td class="align-top">
+                            <span class="badge" style="background-color: rgba(34, 211, 238, 0.18); color: #baf7ff; border: 1px solid rgba(34, 211, 238, 0.35);">
+                                {{ 'pricing.packages.free.price'|trans }}
+                            </span>
+                        </td>
+                        <td class="align-top">
+                            <ul class="list-clean text-muted-custom mb-0 small">
+                                {% for feature in ['pricing.packages.free.features.0', 'pricing.packages.free.features.1', 'pricing.packages.free.features.2', 'pricing.packages.free.features.3', 'pricing.packages.free.features.4'] %}
+                                <li>{{ feature|trans }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td class="align-top">
+                            <ul class="list-clean text-muted-custom mb-0 small">
+                                {% for limit in ['pricing.packages.free.limitations.0', 'pricing.packages.free.limitations.1', 'pricing.packages.free.limitations.2', 'pricing.packages.free.limitations.3'] %}
+                                <li>{{ limit|trans }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr style="border-color: var(--border);">
+                        <td class="fw-semibold align-top">
+                            <div>{{ 'pricing.packages.standard.name'|trans }}</div>
+                            <div class="small text-muted-custom">{{ 'pricing.packages.standard.price'|trans }} / {{ 'pricing.packages.standard.duration'|trans }}</div>
+                        </td>
+                        <td class="align-top">
+                            <span class="badge" style="background-color: rgba(34, 211, 238, 0.18); color: #baf7ff; border: 1px solid rgba(34, 211, 238, 0.35);">
+                                {{ 'pricing.packages.standard.price'|trans }}
+                            </span>
+                        </td>
+                        <td class="align-top">
+                            <ul class="list-clean text-muted-custom mb-0 small">
+                                {% for feature in ['pricing.packages.standard.features.0', 'pricing.packages.standard.features.1', 'pricing.packages.standard.features.2', 'pricing.packages.standard.features.3', 'pricing.packages.standard.features.4'] %}
+                                <li>{{ feature|trans }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td class="align-top">
+                            <ul class="list-clean text-muted-custom mb-0 small">
+                                {% for limit in ['pricing.packages.standard.limitations.0', 'pricing.packages.standard.limitations.1', 'pricing.packages.standard.limitations.2'] %}
+                                <li>{{ limit|trans }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr style="border-color: var(--border);">
+                        <td class="fw-semibold align-top">
+                            <div>{{ 'pricing.packages.video.name'|trans }}</div>
+                            <div class="small text-muted-custom">{{ 'pricing.packages.video.price'|trans }} / {{ 'pricing.packages.video.duration'|trans }}</div>
+                        </td>
+                        <td class="align-top">
+                            <span class="badge" style="background-color: rgba(34, 211, 238, 0.18); color: #baf7ff; border: 1px solid rgba(34, 211, 238, 0.35);">
+                                {{ 'pricing.packages.video.price'|trans }}
+                            </span>
+                        </td>
+                        <td class="align-top">
+                            <ul class="list-clean text-muted-custom mb-0 small">
+                                {% for feature in ['pricing.packages.video.features.0', 'pricing.packages.video.features.1', 'pricing.packages.video.features.2', 'pricing.packages.video.features.3', 'pricing.packages.video.features.4'] %}
+                                <li>{{ feature|trans }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td class="align-top">
+                            <ul class="list-clean text-muted-custom mb-0 small">
+                                {% for limit in ['pricing.packages.video.limitations.0', 'pricing.packages.video.limitations.1', 'pricing.packages.video.limitations.2'] %}
+                                <li>{{ limit|trans }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr style="border-color: var(--border);">
+                        <td class="fw-semibold align-top">
+                            <div>{{ 'pricing.packages.premium.name'|trans }}</div>
+                            <div class="small text-muted-custom">{{ 'pricing.packages.premium.price'|trans }} / {{ 'pricing.packages.premium.duration'|trans }}</div>
+                        </td>
+                        <td class="align-top">
+                            <span class="badge" style="background-color: rgba(34, 211, 238, 0.18); color: #baf7ff; border: 1px solid rgba(34, 211, 238, 0.35);">
+                                {{ 'pricing.packages.premium.price'|trans }}
+                            </span>
+                        </td>
+                        <td class="align-top">
+                            <ul class="list-clean text-muted-custom mb-0 small">
+                                {% for feature in ['pricing.packages.premium.features.0', 'pricing.packages.premium.features.1', 'pricing.packages.premium.features.2', 'pricing.packages.premium.features.3', 'pricing.packages.premium.features.4'] %}
+                                <li>{{ feature|trans }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td class="align-top">
+                            <ul class="list-clean text-muted-custom mb-0 small">
+                                {% for limit in ['pricing.packages.premium.limitations.0', 'pricing.packages.premium.limitations.1', 'pricing.packages.premium.limitations.2'] %}
+                                <li>{{ limit|trans }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="section-pad pb-5" id="contact">
+        <h2 class="section-title">{{ 'contact.title'|trans }}</h2>
+        <article class="surface-card p-4 p-md-5">
+            <p class="mb-2">{{ 'contact.lead'|trans }}</p>
+            <p class="mb-1"><strong>{{ 'contact.email_label'|trans }}</strong> <a class="link-info" href="mailto:kontakt@infratak.pl">kontakt@infratak.pl</a></p>
+            <p class="mb-0"><strong>{{ 'contact.phone_label'|trans }}</strong> +48 000 000 000</p>
+        </article>
+    </section>
+</div>
+{% endblock %}

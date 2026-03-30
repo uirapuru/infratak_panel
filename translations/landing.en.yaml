@@ -1,0 +1,103 @@
+meta:
+  title: "Crisis Communication with ATAK"
+hero:
+  badge: "ATAK Crisis Communication"
+  title: "Reliable crisis communication for teams that must stay online, even when networks fail."
+  subtitle: "Ready ATAK kits, local or cloud TAK servers, and offline-first operation deployed in under 15 minutes."
+  cta: "Request demo"
+offer:
+  title: "Offer"
+  kits:
+    title: "Ready ATAK Kits"
+    desc: "Preconfigured hardware and software bundles prepared for immediate field use."
+  server:
+    title: "TAK Server"
+    desc: "Local or cloud deployment with secure configuration and predictable operating costs."
+  training:
+    title: "Training"
+    desc: "Operational onboarding for command teams, field responders, and technical staff."
+how:
+  title: "How It Works"
+  step1:
+    label: "Step 1"
+    title: "Delivery"
+    desc: "We provide the selected kit and TAK server profile for your scenario."
+  step2:
+    label: "Step 2"
+    title: "Setup in < 15 min"
+    desc: "Your team receives ready access and can start operating quickly."
+  step3:
+    label: "Step 3"
+    title: "Operation"
+    desc: "Work in online and offline modes with the same operational workflow."
+users:
+  title: "Target Users"
+  item1: "Municipalities and local administration teams"
+  item2: "Fire departments and rescue units"
+  item3: "Military and defense-oriented operations"
+  item4: "Crisis management and coordination centers"
+pricing:
+  title: "Pricing"
+  packages:
+    free:
+      name: "FREE DEMO"
+      price: "0 PLN"
+      duration: "1 hour"
+      features:
+        - "ATAK Server (OTS)"
+        - "Up to 3 users"
+        - "Map and COP"
+        - "Chat"
+        - "Video stream (1x2)"
+      limitations:
+        - "Auto shutdown after 1h"
+        - "No SLA"
+        - "No support"
+        - "Ephemeral environment"
+    standard:
+      name: "STANDARD"
+      price: "49-79 PLN"
+      duration: "per day"
+      features:
+        - "ATAK Server"
+        - "Up to 20-30 users"
+        - "COP and chat"
+        - "Data packages"
+        - "Access 7 days"
+      limitations:
+        - "No video"
+        - "No autoscaling"
+        - "No SLA"
+    video:
+      name: "STANDARD + VIDEO"
+      price: "79-119 PLN"
+      duration: "per day"
+      features:
+        - "Everything in STANDARD"
+        - "Up to 20-30 users"
+        - "4x broadcasters, 15x viewers"
+        - "Video 480p ~500-700 kbps"
+        - "Access 7 days"
+      limitations:
+        - "Stream limits"
+        - "Limited quality"
+        - "No SLA"
+    premium:
+      name: "PREMIUM"
+      price: "199-399 PLN"
+      duration: "per day"
+      features:
+        - "Large server (t3.large)"
+        - "Up to 100 users"
+        - "6-8 streams"
+        - "Federation"
+        - "Access 30 days"
+      limitations:
+        - "No autoscaling"
+        - "Fair use transfer"
+        - "Individual configuration"
+contact:
+  title: "Contact"
+  lead: "Request a technical demo and deployment plan:"
+  email_label: "Email:"
+  phone_label: "Phone:"
