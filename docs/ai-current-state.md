@@ -7,6 +7,25 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
 - Preliminary pricing (MVP): see `docs/pricing-mvp.md`
 - Payments model (MVP): see `docs/payments-mvp.md`
 
+## Admin Panel Authentication
+
+- Form login at `/admin/login`, logout at `/admin/logout`.
+- Roles: `ROLE_ADMIN` (full panel access), `ROLE_SUPER_ADMIN` (+ user management).
+- Role hierarchy: `ROLE_SUPER_ADMIN → ROLE_ADMIN → ROLE_USER`.
+- User management CRUD available in the panel under "Administracja → Użytkownicy" (visible only to `ROLE_SUPER_ADMIN`).
+- New users via console: `php bin/console app:admin:create-user <email> <password> [--super-admin]`
+
+### Local dev default user
+
+| field | value                       |
+|-------|-----------------------------|
+| email | `administrator@admin.local` |
+| hasło | `admin123`                  |
+| rola  | `ROLE_SUPER_ADMIN`          |
+
+Utworzony jednorazowo przez:
+`docker compose exec php php bin/console app:admin:create-user administrator@admin.local admin123 --super-admin`
+
 ## Stack in Use
 - PHP 8.4+
 - Symfony 7.3

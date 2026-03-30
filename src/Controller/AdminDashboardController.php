@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Entity\User;
 use App\Enum\ServerStatus;
 use App\Repository\ServerRepository;
 use App\Service\Monitoring\WorkerHealthService;
@@ -11,9 +12,11 @@ use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminDashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\MenuItem;
+use EasyCorp\Bundle\EasyAdminBundle\Config\UserMenu;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractDashboardController;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 #[AdminDashboard(routePath: '/admin', routeName: 'admin')]
 final class AdminDashboardController extends AbstractDashboardController
@@ -84,5 +87,20 @@ final class AdminDashboardController extends AbstractDashboardController
         yield MenuItem::linkToDashboard('Dashboard', 'fa fa-home');
         yield MenuItem::linkTo(AdminServerCrudController::class, 'Servers', 'fa fa-server');
         yield MenuItem::linkTo(AdminServerOperationLogCrudController::class, 'Operation logs', 'fa fa-list');
+        yield MenuItem::section('Administracja');
+        yield MenuItem::linkTo(AdminUserCrudController::class, 'Użytkownicy', 'fa fa-users')
+            ->setPermission('ROLE_SUPER_ADMIN');
+        yield MenuItem::section();
+        yield MenuItem::linkToLogout('Wyloguj', 'fa fa-sign-out-alt');
+    }
+
+    public function configureUserMenu(UserInterface $user): UserMenu
+    {
+        return UserMenu::new()
+            ->displayUserName(true)
+            ->displayUserAvatar(false)
+            ->setMenuItems([
+                MenuItem::linkToLogout('Wyloguj', 'fa fa-sign-out-alt'),
+            ]);
     }
 }

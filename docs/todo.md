@@ -2,10 +2,10 @@
 
 ## Najwyzszy priorytet
 
-1. Zaimplementowac logowanie uzytkownika i schowac panel admina za Symfony Firewall.
-- Dostep do tras admina tylko dla zalogowanych uzytkownikow.
-- Docelowo dodac role i ograniczenia uprawnien (minimum `ROLE_ADMIN` dla panelu).
-- Dodac bezpieczny flow logowania/wylogowania oraz ochrone przed brute-force.
+1. ~~Zaimplementowac logowanie uzytkownika i schowac panel admina za Symfony Firewall.~~ **DONE**
+- ~~Dostep do tras admina tylko dla zalogowanych uzytkownikow.~~
+- ~~Docelowo dodac role i ograniczenia uprawnien (minimum `ROLE_ADMIN` dla panelu).~~
+- ~~Dodac bezpieczny flow logowania/wylogowania oraz ochrone przed brute-force.~~ (nginx rate-limit + basic auth w prod)
 
 ## OpenTAK integration po provisioningu
 

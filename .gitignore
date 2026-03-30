@@ -22,6 +22,7 @@
 ###> docker ###
 /.docker/
 /docker-compose.override.local.yml
+/docker/nginx/.htpasswd
 ###< docker ###
 
 ###> ide ###

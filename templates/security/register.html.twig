@@ -1,0 +1,38 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Rejestracja{% endblock %}
+
+{% block body %}
+<div class="container py-5" style="max-width: 460px;">
+    <div class="surface-card p-4 p-md-5">
+        <h1 class="h3 mb-4">Załóż konto</h1>
+
+        {% for message in app.flashes('success') %}
+            <div class="alert alert-success" role="alert">{{ message }}</div>
+        {% endfor %}
+        {% for message in app.flashes('error') %}
+            <div class="alert alert-danger" role="alert">{{ message }}</div>
+        {% endfor %}
+
+        <form method="post">
+            <div class="mb-3">
+                <label for="email" class="form-label">E-mail</label>
+                <input type="email" name="email" id="email" class="form-control" autocomplete="email" required>
+            </div>
+
+            <div class="mb-4">
+                <label for="password" class="form-label">Hasło</label>
+                <input type="password" name="password" id="password" class="form-control" autocomplete="new-password" minlength="8" required>
+                <small class="text-muted-custom">Minimum 8 znaków.</small>
+            </div>
+
+            <button class="btn btn-accent w-100" type="submit">Utwórz konto</button>
+        </form>
+
+        <p class="mt-4 mb-0 text-muted-custom">
+            Masz już konto?
+            <a class="link-info" href="{{ path('app_login') }}">Zaloguj się</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

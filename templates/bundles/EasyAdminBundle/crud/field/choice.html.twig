@@ -1,5 +1,4 @@
-{%- set badgeKey = field.value.value|default(field.value|default('')) -%}
-{%- set color = {
+{%- set colorMap = {
     'none': 'secondary',
     'creating': 'info',
     'diagnosing': 'primary',
@@ -8,10 +7,29 @@
     'ready': 'success',
     'failed': 'danger',
     'deleted': 'secondary',
-    'stopped': 'warning'
-}[badgeKey] ?? 'secondary' -%}
-{%- if badgeKey == 'none' -%}
-    <span></span>
+    'stopped': 'warning',
+    'ROLE_ADMIN': 'warning',
+    'ROLE_SUPER_ADMIN': 'danger',
+    'ROLE_USER': 'secondary'
+} -%}
+
+{%- set rawValue = field.value|default(null) -%}
+{%- set rawValue = rawValue.value|default(rawValue) -%}
+
+{%- if rawValue is iterable -%}
+    {%- for item in rawValue -%}
+        {%- set badgeKey = item.value|default(item) -%}
+        {%- if badgeKey != 'none' -%}
+            {%- set color = colorMap[badgeKey]|default('secondary') -%}
+            <span class="badge bg-{{ color }}">{{ badgeKey|trans }}</span>
+        {%- endif -%}
+    {%- endfor -%}
 {%- else -%}
-    <span class="badge bg-{{ color }}">{{ field.formattedValue|default(field.value)|trans|raw }}</span>
+    {%- set badgeKey = rawValue|default('') -%}
+    {%- if badgeKey == 'none' -%}
+        <span></span>
+    {%- else -%}
+        {%- set color = colorMap[badgeKey]|default('secondary') -%}
+        <span class="badge bg-{{ color }}">{{ field.formattedValue|default(field.value)|trans|raw }}</span>
+    {%- endif -%}
 {%- endif -%}

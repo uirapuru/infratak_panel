@@ -1,0 +1,48 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Logowanie{% endblock %}
+
+{% block body %}
+<div class="container py-5" style="max-width: 460px;">
+    <div class="surface-card p-4 p-md-5">
+        <h1 class="h3 mb-4">Zaloguj się</h1>
+
+        {% for message in app.flashes('success') %}
+            <div class="alert alert-success" role="alert">{{ message }}</div>
+        {% endfor %}
+        {% for message in app.flashes('error') %}
+            <div class="alert alert-danger" role="alert">{{ message }}</div>
+        {% endfor %}
+
+        {% if error %}
+            <div class="alert alert-danger" role="alert">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+        {% endif %}
+
+        <form method="post">
+            <div class="mb-3">
+                <label for="email" class="form-label">E-mail</label>
+                <input type="email" value="{{ last_username }}" name="_username" id="email" class="form-control" autocomplete="email" required autofocus>
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Hasło</label>
+                <input type="password" name="_password" id="password" class="form-control" autocomplete="current-password" required>
+            </div>
+
+            <div class="form-check mb-4">
+                <input class="form-check-input" type="checkbox" name="_remember_me" id="remember_me">
+                <label class="form-check-label" for="remember_me">Zapamiętaj mnie</label>
+            </div>
+
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+            <button class="btn btn-accent w-100" type="submit">Zaloguj się</button>
+        </form>
+
+        <p class="mt-4 mb-0 text-muted-custom">
+            Nie masz konta?
+            <a class="link-info" href="{{ path('app_register') }}">Zarejestruj się</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
