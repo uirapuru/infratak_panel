@@ -1,0 +1,70 @@
+{% set flash_messages = app.flashes %}
+
+{% if flash_messages|length > 0 %}
+    <div id="flash-messages">
+        {% for label, messages in flash_messages %}
+            {% for message in messages %}
+                {# the message must be translated outside of the Twig component because
+                   the trans_default_domain value is ignored inside the component #}
+                {% set translated_message = message|trans %}
+                <twig:ea:Alert variant="{{ label }}" withDismissButton>
+                    {{ translated_message|raw }}
+                </twig:ea:Alert>
+            {% endfor %}
+        {% endfor %}
+    </div>
+
+    <script>
+        (function () {
+            if (window.__eaPasswordCopyBound) {
+                return;
+            }
+            window.__eaPasswordCopyBound = true;
+
+            async function copyText(text) {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    return;
+                }
+
+                const helper = document.createElement('textarea');
+                helper.value = text;
+                helper.setAttribute('readonly', 'readonly');
+                helper.style.position = 'fixed';
+                helper.style.left = '-9999px';
+                document.body.appendChild(helper);
+                helper.select();
+                document.execCommand('copy');
+                document.body.removeChild(helper);
+            }
+
+            document.addEventListener('click', async function (event) {
+                const button = event.target.closest('.js-copy-password');
+                if (!button) {
+                    return;
+                }
+
+                event.preventDefault();
+                const text = button.getAttribute('data-copy-text') || '';
+                if (!text) {
+                    return;
+                }
+
+                try {
+                    await copyText(text);
+                    const icon = button.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fa-solid fa-check';
+                    }
+
+                    const feedback = button.parentElement ? button.parentElement.querySelector('.js-copy-password-feedback') : null;
+                    if (feedback) {
+                        feedback.classList.remove('d-none');
+                    }
+                } catch (error) {
+                    console.error('Could not copy password to clipboard.', error);
+                }
+            });
+        })();
+    </script>
+{% endif %}

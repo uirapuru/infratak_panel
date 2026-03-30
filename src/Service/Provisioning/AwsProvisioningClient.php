@@ -18,6 +18,7 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         private Ec2Client $ec2,
         private Route53Client $route53,
         private SsmClient $ssm,
+        private OtsApiClient $otsApiClient,
         private SubmoduleProvisioningAssets $submoduleProvisioningAssets,
         private string $amiId,
         private string $instanceType,
@@ -66,7 +67,6 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         $result = $this->ec2->describeInstances([
             'InstanceIds' => [$instanceId],
         ]);
-
         $reservations = $result->get('Reservations');
         $instance = $reservations[0]['Instances'][0] ?? null;
 
@@ -207,22 +207,9 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         $this->terminateInstance($cleanupInstanceId);
     }
 
-    public function rotateOtsAdminPassword(string $instanceId, string $oldPassword, string $newPassword): void
+    public function rotateOtsAdminPassword(string $instanceId, string $domain, string $oldPassword, string $newPassword): void
     {
-        $commands = [
-            'set -eu',
-            'COOKIE_FILE=$(mktemp)',
-            'trap "rm -f \"$COOKIE_FILE\"" EXIT',
-            sprintf('OLD_PASSWORD=%s', escapeshellarg($oldPassword)),
-            sprintf('NEW_PASSWORD=%s', escapeshellarg($newPassword)),
-            'LOGIN_JSON=$(curl -kfsS -c "$COOKIE_FILE" https://127.0.0.1/api/login)',
-            'CSRF_TOKEN=$(printf %s "$LOGIN_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)[\"response\"][\"csrf_token\"])" )',
-            'curl -kfsS -b "$COOKIE_FILE" -c "$COOKIE_FILE" -H "Content-Type: application/json" -H "X-CSRFToken: $CSRF_TOKEN" -X POST https://127.0.0.1/api/login -d "{\"username\":\"administrator\",\"password\":\"$OLD_PASSWORD\"}" >/dev/null',
-            'CHANGE_JSON=$(curl -kfsS -b "$COOKIE_FILE" -H "Content-Type: application/json" -H "X-CSRFToken: $CSRF_TOKEN" -X POST https://127.0.0.1/api/password/change -d "{\"password\":\"$OLD_PASSWORD\",\"new_password\":\"$NEW_PASSWORD\",\"new_password_confirm\":\"$NEW_PASSWORD\"}")',
-            'printf %s "$CHANGE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); assert not d.get(\"has_errors\"), d.get(\"form_errors\", d)"',
-        ];
-
-        $this->sendSsmCommandAndWait($instanceId, $commands);
+        $this->otsApiClient->rotateAdminPassword($domain, $oldPassword, $newPassword);
     }
 
     public function startInstance(string $instanceId): void

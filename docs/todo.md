@@ -59,14 +59,29 @@ Cel:
 - statusy płatności oraz retry/obsługa błędów,
 - powiązanie płatności z abonamentem i lifecycle serwera.
 
+10. Dodać pobieranie rzeczywistego kosztu instancji od uruchomienia do zakończenia.
+- Integracja z danymi kosztowymi AWS (billing/cost explorer) per instancja.
+- Prezentacja kosztu końcowego po zatrzymaniu/terminacji instancji.
+- Możliwość wglądu w koszt per serwer i sumarycznie per konto.
+
+11. Dodać dokładne zliczanie czasu pracy instancji na podstawie zdarzeń start/stop.
+- Zapisywać dokładny timestamp każdego startu i stopu.
+- Sumować wszystkie okresy aktywności instancji (wiele cykli start/stop).
+- Udostępnić łączny czas pracy do rozliczeń i raportowania.
+
+12. Dodać monitoring bieżącego zużycia CPU i dysku.
+- Zbierać metryki okresowo (np. CloudWatch) dla każdej instancji.
+- Pokazywać aktualne użycie CPU i przestrzeni dyskowej w panelu.
+- Dodać progi alertów i historię trendów zużycia.
+
 ## Powiązanie CloudTak z istniejącym serwerem
 
-10. Przy uruchamianiu nowej instancji CloudTak dodać dodatkowy krok wyboru serwera docelowego do podpięcia.
+13. Przy uruchamianiu nowej instancji CloudTak dodać dodatkowy krok wyboru serwera docelowego do podpięcia.
 - Do wyboru mają być wyłącznie instancje OpenTak i GovTak posiadane przez aktualnego użytkownika.
 - Brak dostępnych instancji OpenTak/GovTak powinien blokować utworzenie CloudTak z czytelnym komunikatem.
 - Wybrane powiązanie CloudTak -> serwer docelowy powinno zostać zapisane w bazie danych.
 
-11. Dodać wariant uruchomienia CloudTak bez posiadania własnego serwera (tryb serwera zewnętrznego).
+14. Dodać wariant uruchomienia CloudTak bez posiadania własnego serwera (tryb serwera zewnętrznego).
 - W formularzu użytkownik podaje dane zewnętrznego serwera docelowego.
 - Dodać walidację poprawności danych połączeniowych przed zapisaniem konfiguracji.
 - Przeprowadzić analizę ryzyk (security + operacyjne), w szczególności:
@@ -77,23 +92,23 @@ Cel:
 
 ## Hardening operacyjny i obserwowalność
 
-12. Dodać Messenger failure transport dla wiadomości, które wyczerpały retry.
+15. Dodać Messenger failure transport dla wiadomości, które wyczerpały retry.
 - Wiadomości po 5 próbach nie powinny znikać bez śladu.
 - Administrator powinien móc zobaczyć, co dokładnie utknęło i dlaczego.
 
-13. Dodać komendę operacyjną Symfony do ręcznej diagnozy/problem resolution, np. `app:ops:diagnose-server <id>`.
+16. Dodać komendę operacyjną Symfony do ręcznej diagnozy/problem resolution, np. `app:ops:diagnose-server <id>`.
 - Ma wykonywać ten sam flow co przycisk Diagnose z admina.
 - Ma być bezpieczna do użycia lokalnie i na środowisku serwisowym.
 
-14. Dodać auto-refresh dla dashboardu workerów i detailu serwera.
+17. Dodać auto-refresh dla dashboardu workerów i detailu serwera.
 - Status workerów i status/step serwera powinny odświeżać się bez ręcznego reloadu strony.
 
-15. Dodać prosty healthcheck aplikacyjny workerów, nie tylko odczyt consumer count z RabbitMQ.
+18. Dodać prosty healthcheck aplikacyjny workerów, nie tylko odczyt consumer count z RabbitMQ.
 - Sam consumer count nie odróżnia workera zdrowego od workera, który wisi logicznie.
 
 ## MediaMTX po provisioningu
 
-16. Dodać ograniczenie liczby nadawanych streamów i oglądających (viewerów) w MediaMTX po provisioningu.
+19. Dodać ograniczenie liczby nadawanych streamów i oglądających (viewerów) w MediaMTX po provisioningu.
 - Limity mają być konfigurowalne per serwer/plan.
 - Provisioning powinien zapisywać konfigurację limitów w plikach MediaMTX.
 - Przekroczenie limitu powinno być widoczne w logach operacyjnych i łatwe do diagnozy z panelu.

@@ -94,11 +94,13 @@ final class AdminServerCrudController extends AbstractCrudController
     public function configureActions(Actions $actions): Actions
     {
         $retryProvisioning = Action::new('retryProvisioning', 'Retry provisioning')
+            ->displayIf(static fn (Server $server): bool => $server->getStatus() !== ServerStatus::STOPPED)
             ->linkToRoute('admin_admin_server_retry_provisioning', static fn (Server $server): array => [
                 'entityId' => $server->getId(),
             ]);
 
         $diagnoseProvisioning = Action::new('diagnoseProvisioning', 'Diagnose')
+            ->displayIf(static fn (Server $server): bool => $server->getStatus() !== ServerStatus::STOPPED)
             ->linkToRoute('admin_admin_server_diagnose_provisioning', static fn (Server $server): array => [
                 'entityId' => $server->getId(),
             ]);
@@ -116,7 +118,7 @@ final class AdminServerCrudController extends AbstractCrudController
             ]);
 
         $resetAdminPassword = Action::new('resetAdminPassword', 'Reset admin password')
-            ->displayIf(static fn (Server $server): bool => in_array($server->getStatus(), [ServerStatus::READY, ServerStatus::STOPPED], true))
+            ->displayIf(static fn (Server $server): bool => $server->getStatus() !== ServerStatus::STOPPED)
             ->linkToRoute('admin_admin_server_reset_admin_password', static fn (Server $server): array => [
                 'entityId' => $server->getId(),
             ]);
@@ -142,7 +144,7 @@ final class AdminServerCrudController extends AbstractCrudController
         if ($entity instanceof Server) {
             $passwordToReveal = $entity->getOtsAdminPasswordPendingReveal();
             if ($passwordToReveal !== null && $passwordToReveal !== '') {
-                $this->addFlash('warning', sprintf('OpenTAK admin password (shown once): %s', $passwordToReveal));
+                $this->addPasswordFlash('warning', 'OpenTAK admin password (shown once):', $passwordToReveal);
                 $entity->setOtsAdminPasswordPendingReveal(null);
                 $this->entityManager->flush();
             }
@@ -445,7 +447,7 @@ final class AdminServerCrudController extends AbstractCrudController
             origin: 'manual-reset',
         ));
 
-        $this->addFlash('success', sprintf('Admin password reset queued. One-time password: %s', $newPassword));
+        $this->addPasswordFlash('success', 'Admin password reset queued. One-time password:', $newPassword);
 
         return $this->redirect(
             $this->adminUrlGenerator
@@ -455,5 +457,20 @@ final class AdminServerCrudController extends AbstractCrudController
                 ->setEntityId($server->getId())
                 ->generateUrl()
         );
+    }
+
+    private function addPasswordFlash(string $type, string $label, string $password): void
+    {
+        $safeLabel = htmlspecialchars($label, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $safePassword = htmlspecialchars($password, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        $message = sprintf(
+            '%s <strong class="mx-1">%s</strong><button type="button" class="btn btn-sm btn-outline-secondary ms-2 js-copy-password" data-copy-text="%s" aria-label="Copy password"><i class="fa-regular fa-copy" aria-hidden="true"></i></button><span class="ms-2 small d-none js-copy-password-feedback">Copied</span>',
+            $safeLabel,
+            $safePassword,
+            $safePassword,
+        );
+
+        $this->addFlash($type, $message);
     }
 }

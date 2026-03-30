@@ -30,7 +30,7 @@ interface AwsProvisioningClientInterface
 
     public function cleanupServer(string $serverName, ?string $instanceId, string $domain, string $portalDomain): void;
 
-    public function rotateOtsAdminPassword(string $instanceId, string $oldPassword, string $newPassword): void;
+    public function rotateOtsAdminPassword(string $instanceId, string $domain, string $oldPassword, string $newPassword): void;
 
     public function startInstance(string $instanceId): void;
 

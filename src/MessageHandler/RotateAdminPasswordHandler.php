@@ -36,13 +36,21 @@ final readonly class RotateAdminPasswordHandler
             throw new \RuntimeException('Cannot rotate OTS admin password without AWS instance id.');
         }
 
+        $this->logger->info('OTS admin password rotation attempt started.', [
+            'serverId' => $server->getId(),
+            'instanceId' => $instanceId,
+            'origin' => $message->origin,
+        ]);
+
+        $passwordBeforeAttempt = $server->getOtsAdminPasswordCurrent() ?? $message->oldPassword;
+
         try {
-            $this->aws->rotateOtsAdminPassword($instanceId, $message->oldPassword, $message->newPassword);
+            $this->aws->rotateOtsAdminPassword($instanceId, $server->getDomain(), $message->oldPassword, $message->newPassword);
 
             $pendingReveal = $message->origin === 'manual-reset' ? null : $message->newPassword;
 
             $server
-                ->setOtsAdminPasswordPrevious($message->oldPassword)
+                ->setOtsAdminPasswordPrevious($passwordBeforeAttempt)
                 ->setOtsAdminPasswordCurrent($message->newPassword)
                 ->setOtsAdminPasswordPendingReveal($pendingReveal)
                 ->setOtsAdminPasswordRotatedAt(new \DateTimeImmutable())
@@ -50,16 +58,18 @@ final readonly class RotateAdminPasswordHandler
 
             $this->entityManager->flush();
 
-            $this->logger->info('OTS admin password rotated.', [
+            $this->logger->info('OTS admin password rotation attempt succeeded.', [
                 'serverId' => $server->getId(),
+                'instanceId' => $instanceId,
                 'origin' => $message->origin,
             ]);
         } catch (\Throwable $exception) {
             $server->setLastError($exception->getMessage());
             $this->entityManager->flush();
 
-            $this->logger->error('OTS admin password rotation failed.', [
+            $this->logger->error('OTS admin password rotation attempt failed.', [
                 'serverId' => $server->getId(),
+                'instanceId' => $instanceId,
                 'origin' => $message->origin,
                 'error' => $exception->getMessage(),
             ]);
