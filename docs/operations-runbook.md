@@ -16,6 +16,7 @@ Biznesowe kolejki AMQP są dwie:
 Uwagi:
 
 * `CreateServerMessage`, `DeleteServerMessage`, `DiagnoseServerMessage` i `StopServerMessage` używają transportu `provisioning`
+* `ManualStopServerMessage`, `StartServerMessage` i `RotateAdminPasswordMessage` również używają transportu `provisioning`
 * `ServerProjectionMessage` używa transportu `projection`
 * dodatkowe kolejki typu `delay_*` mogą pojawiać się czasowo przez retry Symfony Messenger i nie są osobnymi kolejkami domenowymi
 
@@ -152,7 +153,49 @@ Uwagi:
 
 ---
 
-## 7. Statusy i ich znaczenie operacyjne
+## 7. Aktualny flow resetu hasła admina OTS
+
+1. trigger pochodzi z jednego z dwóch źródeł:
+   * automatycznie po zakończeniu provisioningu (`post-provisioning`)
+   * ręcznie z akcji admin (`manual-reset`)
+2. panel dispatchuje `RotateAdminPasswordMessage` na transport `provisioning`
+3. worker provisioning wykonuje bezpośrednie call-e REST do OTS API:
+   * `GET /api/login` (csrf + cookie)
+   * `POST /api/login`
+   * `POST /api/password/change`
+4. wynik końcowy:
+   * sukces: aktualizacja `otsAdminPasswordCurrent`, `otsAdminPasswordPrevious`, `otsAdminPasswordRotatedAt`
+   * porażka: zapis błędu do `lastError` + log `OTS admin password rotation attempt failed`
+
+Uwagi:
+
+* reset hasła nie używa już zdalnego skryptu przez SSM
+* manual reset pokazuje hasło od razu w flashu
+* reveal po provisioningu jest jednorazowy (`otsAdminPasswordPendingReveal` czyszczone po pokazaniu)
+
+### Szybka diagnostyka gdy reset hasła nie działa
+
+1. sprawdź worker provisioning:
+
+```bash
+docker compose logs --tail=200 worker_provisioning
+```
+
+2. szukaj logów:
+
+* `OTS admin password rotation attempt started`
+* `OTS admin password rotation attempt succeeded`
+* `OTS admin password rotation attempt failed`
+
+3. sprawdź czy domena serwera odpowiada HTTPS i czy endpointy OTS są osiągalne:
+
+```bash
+curl -k -I https://<server-domain>/api/login
+```
+
+---
+
+## 8. Statusy i ich znaczenie operacyjne
 
 ### Statusy
 
@@ -179,7 +222,7 @@ Uwagi:
 
 ---
 
-## 7. Dobra praktyka po zmianach backendu
+## 9. Dobra praktyka po zmianach backendu
 
 Po zmianach dotyczących Messengera, workerów albo enumów zawsze wykonaj:
 
@@ -191,7 +234,7 @@ To powinno być traktowane jako standardowa część lokalnej weryfikacji zmian.
 
 ---
 
-## 8. Sensowne następne usprawnienia
+## 10. Sensowne następne usprawnienia
 
 Najbardziej wartościowe operacyjnie rzeczy do dodania:
 

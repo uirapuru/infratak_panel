@@ -22,8 +22,19 @@ It is not a CRUD-first app and not a dashboard-first app.
 ## Queue Topology
 - Use dedicated queue/transport for provisioning commands.
 - Use dedicated queue/transport for projection updates (status/log events).
-- Diagnose uses the provisioning transport; do not introduce a third queue unless there is a clear operational reason.
+- Diagnose, manual start/stop, and OTS admin password rotation use the provisioning transport; do not introduce a third business queue unless there is a clear operational reason.
 - Do not mix provisioning side effects and read-model persistence in one worker.
+
+## OTS Admin Password Rotation Contract
+- Password rotation is asynchronous and must be triggered by `RotateAdminPasswordMessage`.
+- Trigger sources:
+  - post-provisioning (one-time rotation after `ready`)
+  - manual admin reset
+- Rotation must be executed via worker-side HTTPS calls to OTS API (`/api/login`, `/api/password/change`) through dedicated service (`OtsApiClient`).
+- Do not execute password rotation through remote SSM shell scripts.
+- On success persist: `otsAdminPasswordPrevious`, `otsAdminPasswordCurrent`, `otsAdminPasswordRotatedAt`.
+- On post-provisioning success set one-time reveal field; clear it after first admin detail render.
+- On failure persist `lastError` and emit error log with rotation context.
 
 ## Provisioning Flow Contract
 Expected steps:

@@ -3,6 +3,10 @@
 ## Project Goal
 Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in a fully async, step-based, resumable flow.
 
+## Business Docs
+- Preliminary pricing (MVP): see `docs/pricing-mvp.md`
+- Payments model (MVP): see `docs/payments-mvp.md`
+
 ## Stack in Use
 - PHP 8.4+
 - Symfony 7.3
@@ -32,6 +36,10 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
   - lastDiagnoseStatus
   - lastDiagnoseLog
   - lastDiagnosedAt
+  - otsAdminPasswordCurrent
+  - otsAdminPasswordPrevious
+  - otsAdminPasswordPendingReveal
+  - otsAdminPasswordRotatedAt
   - createdAt
   - updatedAt
 - Enums:
@@ -69,6 +77,9 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
   - DeleteServerMessage
   - DiagnoseServerMessage
   - StopServerMessage
+  - ManualStopServerMessage
+  - StartServerMessage
+  - RotateAdminPasswordMessage
   - ServerProjectionMessage
 - Handlers:
   - CreateServerHandler
@@ -79,7 +90,7 @@ Backend orchestrator that provisions per-user ATAK (OpenTAK) instances on AWS in
 - Transport:
   - provisioning AMQP transport for AWS orchestration
   - projection AMQP transport for status/log projection updates
-  - Diagnose messages are routed to the existing provisioning transport (there is no third business queue)
+  - Diagnose/Stop/Start/Rotate password messages are routed to the existing provisioning transport (there is no third business queue)
 - Retry behavior:
   - max attempts: 5
   - delay range: 10s-30s for orchestration retries
@@ -96,6 +107,10 @@ ProvisioningOrchestrator executes step-by-step flow:
 6. provision (SSM script for nginx + HTTP)
 7. cert (SSM certbot command)
 8. set ready status and clear step to none
+
+Post-ready follow-up:
+- when server reaches `ready`, the system queues `RotateAdminPasswordMessage` once (if `otsAdminPasswordRotatedAt` is null)
+- password rotation is executed asynchronously by provisioning worker
 
 Rules respected in implementation:
 - no AWS calls in controllers/processors
@@ -119,6 +134,11 @@ Rules respected in implementation:
   - InvalidInstanceId during SendCommand is treated as retryable race (agent/registration not ready yet)
   - provisioning and cert steps wait for real SSM completion before progressing
   - used for provisioning and certbot
+- OTS API (direct HTTPS from worker):
+  - `GET /api/login` to get csrf token + initial cookies
+  - `POST /api/login` for admin session
+  - `POST /api/password/change` for password rotation
+  - implemented in dedicated `OtsApiClient` (worker-side REST call, no remote SSM script for password change)
 
 ### Provisioning Submodule
 - Git submodule added at:
@@ -146,10 +166,52 @@ Rules respected in implementation:
   - enum fields such as status and step are rendered as badges in admin
   - action: retry provisioning (queues CreateServerMessage)
   - action: diagnose (queues DiagnoseServerMessage on provisioning transport)
+  - action: start server (queues StartServerMessage)
+  - action: reset admin password (queues RotateAdminPasswordMessage)
+  - for `stopped` servers, actions retry/diagnose/reset password are hidden
   - diagnose sets status=diagnosing while running
   - diagnose writes final status ready or failed
   - step is cleared when server returns to ready; on failed diagnose the step remains at the failure point
+  - one-time admin password reveal is shown in flash after post-provision rotation
+  - manual reset shows immediate one-time password in flash
+  - password value in flash has copy-to-clipboard button
+  - domain and portalDomain are rendered as clickable links in detail view
   - operation log screen in admin menu
+
+### Password Rotation Flow (Current)
+```mermaid
+sequenceDiagram
+    autonumber
+    participant EA as EasyAdmin/API
+    participant MQ as RabbitMQ provisioning
+    participant WH as RotateAdminPasswordHandler
+    participant OTS as OTS API
+    participant DB as MariaDB
+
+    Note over EA,MQ: Trigger source: post-provisioning OR manual reset
+    EA->>MQ: RotateAdminPasswordMessage(serverId, oldPassword, newPassword, origin)
+    MQ->>WH: consume message
+    WH->>OTS: GET /api/login (csrf + cookie)
+    OTS-->>WH: 200 + csrf_token + set-cookie
+    WH->>OTS: POST /api/login (administrator, oldPassword)
+    OTS-->>WH: 200 + session cookies
+    WH->>OTS: POST /api/password/change
+    OTS-->>WH: 200 / error
+    alt success
+        WH->>DB: save current/previous/rotatedAt
+        WH->>DB: pendingReveal = newPassword (post-provisioning only)
+    else failure
+        WH->>DB: save lastError
+    end
+```
+
+### Manual Start Flow (Current)
+- Start action queues `StartServerMessage`.
+- Worker starts EC2 instance, waits for public IP, updates Route53 A records again, then projects:
+  - `status = ready`
+  - `step = none`
+  - refreshed `publicIp`
+  - cleared `lastError` on success
 
 ### Projection Log Model
 - New table/entity: server_operation_log
