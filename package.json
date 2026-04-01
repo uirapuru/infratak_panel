@@ -1,0 +1,14 @@
+{
+  "name": "infratak-panel-e2e",
+  "private": true,
+  "scripts": {
+    "pw:install": "playwright install chromium",
+    "pw:test": "playwright test",
+    "pw:test:headed": "playwright test --headed",
+    "pw:test:ui": "playwright test --ui",
+    "pw:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.2"
+  }
+}

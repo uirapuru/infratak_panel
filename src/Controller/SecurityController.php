@@ -14,11 +14,13 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
+use Psr\Log\LoggerInterface;
 
 final class SecurityController extends AbstractController
 {
@@ -48,6 +50,7 @@ final class SecurityController extends AbstractController
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
         MailerInterface $mailer,
+        LoggerInterface $logger,
     ): Response {
         if ($request->isMethod('POST')) {
             $email = strtolower(trim((string) $request->request->get('email', '')));
@@ -101,7 +104,24 @@ final class SecurityController extends AbstractController
                     htmlspecialchars($verifyUrl, ENT_QUOTES),
                 ));
 
-            $mailer->send($emailMessage);
+            try {
+                $mailer->send($emailMessage);
+            } catch (TransportExceptionInterface $exception) {
+                // Registration must not end with 500 when mail transport is down.
+                // Remove the just-created inactive user and token to allow clean retry.
+                $entityManager->remove($token);
+                $entityManager->remove($user);
+                $entityManager->flush();
+
+                $logger->error('Registration verification e-mail delivery failed.', [
+                    'email' => $email,
+                    'exception' => $exception,
+                ]);
+
+                $this->addFlash('error', 'Nie udalo sie wyslac e-maila weryfikacyjnego. Sprobuj ponownie za chwile.');
+
+                return $this->redirectToRoute('app_register');
+            }
 
             $this->addFlash('success', 'Konto utworzone. Sprawdź skrzynkę e-mail i potwierdź konto.');
 

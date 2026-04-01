@@ -10,6 +10,10 @@ It is not a CRUD-first app and not a dashboard-first app.
 - No provisioning in HTTP request lifecycle.
 - All provisioning must be async via Messenger.
 - Provisioning must be step-based and resumable.
+- HTTP endpoints must handle external service failures gracefully:
+  - catch transport exceptions in email sending (mailer);
+  - return user-facing error message (flash) and HTTP 3xx redirect, never HTTP 5xx on transient failure;
+  - rollback partial state changes (e.g., user/token created before failed email).
 
 ## Layer Responsibilities
 - API Platform: transport and input/output only.
@@ -112,3 +116,13 @@ No change is complete unless code, docs, and tests are consistent.
 - migration state is valid
 - docs reflect final behavior
 - long-running workers were restarted locally if enum/handler behavior changed during verification
+
+## AI Development Discipline (Mandatory for AI assistants)
+- After every code/config change, add a changelog entry to `docs/changelog.md`:
+  - date (ISO format: YYYY-MM-DD)
+  - summary of change (1-2 sentences)
+  - files modified (relative paths)
+  - rationale or impact
+- Changelog is the project timeline and must be traceable to understand evolution of decisions and fixes
+- changelog.md is never edited manually by developers, only by AI
+- Keep changelog entries concise but informative

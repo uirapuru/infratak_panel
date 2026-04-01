@@ -64,6 +64,27 @@ Utworzony jednorazowo przez:
 - Docker
 - AWS SDK for PHP (EC2, Route53, SSM)
 - EasyAdmin
+- Playwright (E2E testing)
+
+## End-to-End Testing (Playwright E2E)
+
+- Framework: Playwright + TypeScript
+- Runs against: local dev stack (`http://127.0.0.1:8080`)
+- Tests located in: `tests/e2e/`
+- Config: `playwright.config.ts` with Chromium + HTML reporting
+- NPM scripts:
+  - `npm run pw:test` — run tests headless
+  - `npm run pw:test:headed` — run tests with UI visible
+  - `npm run pw:test:ui` — debug mode with Playwright inspector
+  - `npm run pw:report` — open HTML report
+- Current test suite:
+  - `home.spec.ts` — landing page smoke test
+  - `register.spec.ts` — registration error handling when mail transport is unavailable
+- Make targets for convenience:
+  - `make playwright-install` — install deps + Chromium
+  - `make playwright-test` — run full test suite
+  - `make playwright-test-ui` — debug mode
+- Notes: Tests run against local compose before they start (no need for manual Docker startup)
 
 ## What Is Already Implemented
 
@@ -197,6 +218,28 @@ Rules respected in implementation:
   - local read/render inside Symfony worker
   - remote execution through AWS SSM
 - This keeps the orchestrator on SSM while reusing the provisioning repository contents.
+
+### User Registration and Email Verification
+- Public registration endpoint:
+  - GET/POST `/register` (form + validation)
+- Email verification flow:
+  - User submits email + password
+  - System generates 24h verification token
+  - Email sent to user with verification link
+  - User clicks link to activate account
+  - Endpoint: GET `/verify-email` with token query param
+- Error handling:
+  - Invalid email: flash error + redirect to form
+  - Password < 8 chars: flash error + redirect to form
+  - Email already in use: flash error + redirect to form
+  - **SMTP transport unavailable: user receives friendly error, no HTTP 500; created user/token are rolled back**
+- Related entities:
+  - `User` (email, password, roles, active flag, timestamps)
+  - `EmailVerificationToken` (token hash, expiration, used flag, user association)
+- Notes:
+  - Passwords are hashed with bcrypt (automatic via security.yaml)
+  - Inactive users cannot log in (verified by `UserActiveChecker`)
+  - Token hash is stored (not plain token) for security
 
 ### Admin and Operations
 - Health endpoint:

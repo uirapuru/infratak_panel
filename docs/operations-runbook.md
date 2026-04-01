@@ -274,3 +274,55 @@ Najbardziej wartościowe operacyjnie rzeczy do dodania:
 3. auto-refresh dashboardu workerów i detail view serwera
 4. komenda Symfony typu `app:ops:diagnose-server <id>` do bezpiecznej operacyjnej diagnozy bez ręcznych skryptów `php -r`
 5. prosty healthcheck workerów na poziomie aplikacji, nie tylko RabbitMQ consumer count
+
+---
+
+## 10. Mailer — konfiguracja dla produkcji
+
+Po wysłaniu formularza rejestracji (`/register`) aplikacja wysyła email weryfikacyjny.
+
+Problemy obsłużone:
+- Jeśli `MAILER_DSN` wskazuje na niedostępny transport (np. `mailcatcher` w produkcji), rejestracja zwraca błąd zamiast 500.
+- Konto użytkownika i token weryfikacyjny są wycofane (rollback), by nie zostawić martwych danych.
+- Użytkownik dostaje czytelny komunikat i może ponowić próbę.
+
+Konfiguracja produkcyjna:
+- Zmień `MAILER_DSN` w `.env.deploy` na realne SMTP (nie mailcatcher).
+- Przykład: `smtp://USERNAME:PASSWORD@smtp.example.com:587?encryption=tls&auth_mode=login`
+- Dokumentacja: `docs/mailer-production.md`
+
+Validacja SPF/DKIM/DMARC:
+- Dodaj rekordy DNS dla domeny nadawcy (jeśli używasz mailcatcher → pomiń).
+- Testuj wysyłkę przez formularz rejestracji i sprawdzaj logi serwera.
+
+---
+
+## 11. Runbook TLS / certyfikaty
+
+Dedykowana instrukcja aktualizacji i naprawy certyfikatu jest w pliku:
+
+* `docs/tls-certificate-runbook.md`
+
+---
+
+## 12. Testing — Playwright E2E
+
+E2E testy działają na lokalnym stosie Docker Compose. Nie wymagają dodatkowej konfiguracji oprócz npm install.
+
+Uruchomienie:
+```bash
+make playwright-install  # jednorazowe instalacja
+make playwright-test     # uruchomienie testów
+```
+
+Debug:
+```bash
+make playwright-test-ui       # UI mode z loggingiem
+make playwright-test-headed   # headed (przeglądarka widoczna)
+```
+
+Scenariusze objęte testami:
+- Landing page: sprawdzenie dostępności i renderowania sekcji.
+- Rejestracja: sprawdzenie obsługi błędu SMTP (braku mailera).
+
+Dokumentacja: `docs/playwright-e2e.md`

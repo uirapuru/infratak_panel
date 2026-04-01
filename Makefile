@@ -17,7 +17,7 @@ SCP = scp $(SSH_OPTS) -i $(SSH_KEY)
 RSYNC = rsync -avz --delete --exclude .git --exclude var/letsencrypt --exclude var/certbot -e "ssh $(SSH_OPTS) -i $(SSH_KEY)"
 REMOTE_COMPOSE = docker compose --env-file $(ENV_FILE) -f $(COMPOSE_FILE)
 
-.PHONY: deploy deploy-check deploy-up deploy-migrate deploy-cache-clear deploy-restart deploy-logs deploy-ps deploy-down infra-up infra-ip infra-wait-ready deploy-prod deploy-prepare-env deploy-rotate-secrets setup deploy-one tls-renew tls-status remote-tls-cert
+.PHONY: deploy deploy-check deploy-up deploy-migrate deploy-cache-clear deploy-restart deploy-logs deploy-ps deploy-down infra-up infra-ip infra-wait-ready deploy-prod deploy-prepare-env deploy-rotate-secrets setup deploy-one tls-renew tls-status remote-tls-cert playwright-install playwright-test playwright-test-ui playwright-test-headed
 
 deploy: deploy-check deploy-up deploy-migrate deploy-cache-clear
 	@echo "Deploy finished successfully."
@@ -203,7 +203,7 @@ deploy-rotate-secrets:
 	@$(MAKE) deploy-prepare-env FORCE_ROTATE_APP=1
 
 remote-tls-cert:
-	$(SSH) "cd $(APP_DIR) && if [ -s var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem ] && openssl x509 -in var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem -noout -issuer 2>/dev/null | grep -qi \"Let's Encrypt\" && openssl x509 -checkend 2592000 -in var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem >/dev/null 2>&1; then echo 'Cert valid (LE, >30 days), skipping certbot'; else $(REMOTE_COMPOSE) stop landing_nginx && CERTBOT_FLAGS='--keep-until-expiring'; if [ ! -s var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem ] || [ ! -s var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem ]; then CERTBOT_FLAGS='--force-renewal'; elif ! openssl x509 -in var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem -noout -issuer 2>/dev/null | grep -qi \"Let's Encrypt\"; then CERTBOT_FLAGS='--force-renewal'; fi; if docker run --rm --network host -v \"$$PWD/var/letsencrypt:/etc/letsencrypt\" -v \"$$PWD/var/certbot:/var/lib/letsencrypt\" certbot/certbot certonly --standalone --preferred-challenges http -d $(TLS_DOMAIN) --email $(LETSENCRYPT_EMAIL) --agree-tos --non-interactive $$CERTBOT_FLAGS; then echo 'Certbot OK'; else echo 'Certbot failed; restoring bootstrap cert'; sudo mkdir -p var/letsencrypt/live/$(TLS_DOMAIN); if [ ! -s var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem ] || [ ! -s var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem ]; then sudo openssl req -x509 -nodes -newkey rsa:2048 -keyout var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem -out var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem -days 1 -subj '/CN=$(TLS_DOMAIN)' >/dev/null 2>&1; fi; fi && $(REMOTE_COMPOSE) start landing_nginx; fi"
+	$(SSH) "cd $(APP_DIR) && if sudo test -s var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem && sudo openssl x509 -in var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem -noout -issuer 2>/dev/null | grep -qi \"Let's Encrypt\" && sudo openssl x509 -checkend 2592000 -in var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem >/dev/null 2>&1; then echo 'Cert valid (LE, >30 days), skipping certbot'; else $(REMOTE_COMPOSE) stop landing_nginx && CERTBOT_FLAGS='--keep-until-expiring'; if ! sudo test -s var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem || ! sudo test -s var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem; then CERTBOT_FLAGS='--force-renewal'; elif ! sudo openssl x509 -in var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem -noout -issuer 2>/dev/null | grep -qi \"Let's Encrypt\"; then CERTBOT_FLAGS='--force-renewal'; fi; if docker run --rm --network host -v \"$$PWD/var/letsencrypt:/etc/letsencrypt\" -v \"$$PWD/var/certbot:/var/lib/letsencrypt\" certbot/certbot certonly --standalone --preferred-challenges http -d $(TLS_DOMAIN) --email $(LETSENCRYPT_EMAIL) --agree-tos --non-interactive $$CERTBOT_FLAGS; then echo 'Certbot OK'; else echo 'Certbot failed; restoring bootstrap cert'; sudo mkdir -p var/letsencrypt/live/$(TLS_DOMAIN); if ! sudo test -s var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem || ! sudo test -s var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem; then if sudo test -L var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem || sudo test -L var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem; then echo 'Refusing to overwrite Certbot symlink targets with bootstrap cert'; exit 1; fi; sudo openssl req -x509 -nodes -newkey rsa:2048 -keyout var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem -out var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem -days 1 -subj '/CN=$(TLS_DOMAIN)' >/dev/null 2>&1; fi; fi && $(REMOTE_COMPOSE) start landing_nginx; fi"
 
 tls-renew: deploy-check
 	@$(MAKE) remote-tls-cert
@@ -215,7 +215,7 @@ tls-status:
 deploy-prod: deploy-prepare-env deploy-check
 	$(RSYNC) ./ $(SERVER_USER)@$(SERVER_IP):$(APP_DIR)
 	$(SCP) $(ENV_FILE) $(SERVER_USER)@$(SERVER_IP):$(APP_DIR)/$(ENV_FILE)
-	$(SSH) "cd $(APP_DIR) && sudo mkdir -p var/letsencrypt/live/$(TLS_DOMAIN) var/certbot && if [ ! -s var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem ] || [ ! -s var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem ]; then sudo openssl req -x509 -nodes -newkey rsa:2048 -keyout var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem -out var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem -days 1 -subj '/CN=$(TLS_DOMAIN)' >/dev/null 2>&1; fi"
+	$(SSH) "cd $(APP_DIR) && sudo mkdir -p var/letsencrypt/live/$(TLS_DOMAIN) var/certbot && if ! sudo test -s var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem || ! sudo test -s var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem; then if sudo test -L var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem || sudo test -L var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem; then echo 'Refusing to overwrite Certbot symlink targets with bootstrap cert'; exit 1; fi; sudo openssl req -x509 -nodes -newkey rsa:2048 -keyout var/letsencrypt/live/$(TLS_DOMAIN)/privkey.pem -out var/letsencrypt/live/$(TLS_DOMAIN)/fullchain.pem -days 1 -subj '/CN=$(TLS_DOMAIN)' >/dev/null 2>&1; fi"
 	$(SSH) "cd $(APP_DIR) && $(REMOTE_COMPOSE) up -d --build --remove-orphans"
 	@$(MAKE) remote-tls-cert
 	$(SSH) "cd $(APP_DIR) && $(REMOTE_COMPOSE) exec -T landing_php php bin/console doctrine:migrations:migrate --no-interaction"
@@ -225,3 +225,19 @@ setup: infra-up infra-wait-ready deploy-prod
 	@echo "One-command setup finished successfully."
 
 deploy-one: setup
+
+playwright-install:
+	npm install
+	npx playwright install chromium
+
+playwright-test:
+	docker compose up -d nginx php mariadb rabbitmq
+	npm run pw:test
+
+playwright-test-ui:
+	docker compose up -d nginx php mariadb rabbitmq
+	npm run pw:test:ui
+
+playwright-test-headed:
+	docker compose up -d nginx php mariadb rabbitmq
+	npm run pw:test:headed

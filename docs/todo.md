@@ -2,15 +2,23 @@
 
 ## Najwyzszy priorytet
 
+0. Uruchomic Playwright E2E testy w CI/CD.
+- [DONE] Setup lokalny Playwright + testy smoke dla home i register.
+- TODO: Integracja z CI pipeline (GitHub Actions, Gitlab CI, etc.).
+- TODO: Dodać testy dla scenariuszy logowania, formularzy API.
+
 1. Uruchomic produkcyjnie certyfikat Let's Encrypt i domknac automatyczne odnowienia.
 - Potwierdzic, ze `make tls-status` pokazuje issuer Let's Encrypt (nie self-signed).
 - Ustawic i zweryfikowac cykliczne odnowienie (np. cron/systemd timer wywolujacy `make tls-renew`).
 - Dodac test po odnowieniu: `curl -I https://infratak.com` + walidacja dat certyfikatu.
 
-2. Uruchomic wysylanie emaili produkcyjnych (Symfony Mailer).
-- Skonfigurowac docelowy provider SMTP/API i poprawny `MAILER_DSN` w `.env.deploy`.
-- Dodac i zweryfikowac DNS: SPF, DKIM, DMARC dla domeny nadawcy.
-- Dodac test end-to-end (email testowy z aplikacji) i checklist operacyjny (retry, logi, monitoring bledow).
+2. Hardening rejestracji użytkownika (error handling, mailer).
+- [DONE] Obsługa błędu SMTP w `/register` — rollback user/token, friendly error message zamiast 500.
+- [DONE] Dokumentacja produkcyjnego MAILER_DSN w docs/mailer-production.md.
+- [DONE] Test Playwright weryfikujący scenariusz braku mailcatchera w produkcji.
+- TODO: Skonfigurować rzeczywisty provider SMTP/API i poprawny MAILER_DSN w `.env.deploy`.
+- TODO: Dodać i zweryfikować DNS: SPF, DKIM, DMARC dla domeny nadawcy.
+- TODO: Checklist operacyjny mailera: retry, logi, monitoring błędów wysyłki.
 
 ## Zrobione (usuniete z aktywnego backlogu)
 
