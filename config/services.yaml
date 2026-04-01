@@ -49,10 +49,7 @@ services:
             - [setBasePath, ['%kernel.project_dir%']]
 
     Aws\Sdk:
-        arguments:
-            -
-                version: latest
-                region: '%aws.region%'
+        factory: ['@App\Service\Aws\AwsSdkFactory', 'create']
 
     Aws\Ec2\Ec2Client:
         factory: ['@Aws\Sdk', 'createEc2']

@@ -8,6 +8,8 @@ use Aws\Ec2\Ec2Client;
 use Aws\Exception\AwsException;
 use Aws\Route53\Route53Client;
 use Aws\Ssm\SsmClient;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 final readonly class AwsProvisioningClient implements AwsProvisioningClientInterface
 {
@@ -19,6 +21,8 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         private Route53Client $route53,
         private SsmClient $ssm,
         private OtsApiClient $otsApiClient,
+        #[Autowire(service: 'monolog.logger.aws')]
+        private LoggerInterface $awsLogger,
         private SubmoduleProvisioningAssets $submoduleProvisioningAssets,
         private string $amiId,
         private string $instanceType,
@@ -52,7 +56,18 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
 
         $runInstances['IamInstanceProfile'] = ['Name' => $this->instanceProfileName];
 
-        $result = $this->ec2->runInstances($runInstances);
+        try {
+            $result = $this->ec2->runInstances($runInstances);
+        } catch (AwsException $exception) {
+            $this->awsLogger->error('AWS ERROR', [
+                'message' => $exception->getMessage(),
+                'aws_code' => $exception->getAwsErrorCode(),
+                'aws_type' => $exception->getAwsErrorType(),
+            ]);
+
+            throw $exception;
+        }
+
         $instances = $result->get('Instances');
 
         if (!is_array($instances) || !isset($instances[0]['InstanceId'])) {
@@ -114,6 +129,12 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
                 'MaxResults' => 5,
             ]);
         } catch (AwsException $exception) {
+            $this->awsLogger->error('AWS ERROR', [
+                'message' => $exception->getMessage(),
+                'aws_code' => $exception->getAwsErrorCode(),
+                'aws_type' => $exception->getAwsErrorType(),
+            ]);
+
             if ($exception->getAwsErrorCode() === 'AccessDeniedException' || $exception->getStatusCode() === 403) {
                 throw new FinalException('Missing SSM read permissions (ssm:DescribeInstanceInformation).');
             }
@@ -157,12 +178,22 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
             ],
         ];
 
-        $this->route53->changeResourceRecordSets([
-            'HostedZoneId' => $this->hostedZoneId,
-            'ChangeBatch' => [
-                'Changes' => $changes,
-            ],
-        ]);
+        try {
+            $this->route53->changeResourceRecordSets([
+                'HostedZoneId' => $this->hostedZoneId,
+                'ChangeBatch' => [
+                    'Changes' => $changes,
+                ],
+            ]);
+        } catch (AwsException $exception) {
+            $this->awsLogger->error('AWS ERROR', [
+                'message' => $exception->getMessage(),
+                'aws_code' => $exception->getAwsErrorCode(),
+                'aws_type' => $exception->getAwsErrorType(),
+            ]);
+
+            throw $exception;
+        }
     }
 
     public function sendProvisioningCommand(string $instanceId, string $domain, string $portalDomain): string
@@ -309,6 +340,12 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
                 ],
             ]);
         } catch (AwsException $exception) {
+            $this->awsLogger->error('AWS ERROR', [
+                'message' => $exception->getMessage(),
+                'aws_code' => $exception->getAwsErrorCode(),
+                'aws_type' => $exception->getAwsErrorType(),
+            ]);
+
             $errorCode = (string) ($exception->getAwsErrorCode() ?? '');
             if (str_contains($errorCode, 'InvalidInstanceId')) {
                 throw new RetryableProvisioningException('SSM not ready yet');
