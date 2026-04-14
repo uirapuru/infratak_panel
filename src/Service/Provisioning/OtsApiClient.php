@@ -71,6 +71,9 @@ final readonly class OtsApiClient
 
         $cookies = array_merge($cookies, $this->extractCookies($authResponse->getHeaders(false)['set-cookie'] ?? []));
 
+        // Django may rotate the csrftoken cookie on login — use the updated value if present.
+        $csrfToken = $cookies['csrftoken'] ?? $csrfToken;
+
         $changeResponse = $this->httpClient->request('POST', sprintf('%s/api/password/change', $baseUrl), [
             ...$commonOptions,
             'headers' => [

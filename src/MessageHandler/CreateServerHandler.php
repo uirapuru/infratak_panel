@@ -121,6 +121,7 @@ final readonly class CreateServerHandler
             logMessage: 'Provisioning failed permanently.',
             logContext: [
                 'attempt' => $attempt,
+                'error'   => $exception->getMessage(),
             ],
         );
 
@@ -157,6 +158,7 @@ final readonly class CreateServerHandler
                 logMessage: 'Provisioning failed permanently.',
                 logContext: [
                     'attempt' => $attempt,
+                    'error'   => $exception->getMessage(),
                 ],
             );
 
@@ -191,6 +193,7 @@ final readonly class CreateServerHandler
             logMessage: 'Provisioning retry scheduled.',
             logContext: [
                 'attempt' => $attempt,
+                'error'   => $exception->getMessage(),
             ],
         );
 

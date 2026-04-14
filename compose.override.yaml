@@ -26,6 +26,12 @@ services:
       MAILER_DSN: smtp://mailcatcher:1025
       TZ: Europe/Warsaw
 
+  scheduler:
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
+      TZ: Europe/Warsaw
+
   mariadb:
     ports:
       - "3306:3306"

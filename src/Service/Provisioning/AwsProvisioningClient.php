@@ -238,8 +238,10 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         $this->terminateInstance($cleanupInstanceId);
     }
 
-    public function rotateOtsAdminPassword(string $instanceId, string $domain, string $oldPassword, string $newPassword): void
+    public function rotateOtsAdminPassword(string $instanceId, string $domain, string $portalDomain, string $oldPassword, string $newPassword): void
     {
+        // Only the main OTS instance exposes /api/login + /api/password/change.
+        // The portal is a separate Flask app with no independent admin credentials.
         $this->otsApiClient->rotateAdminPassword($domain, $oldPassword, $newPassword);
     }
 
@@ -508,7 +510,7 @@ final readonly class AwsProvisioningClient implements AwsProvisioningClientInter
         return null;
     }
 
-    private function getInstanceState(string $instanceId): string
+    public function getInstanceState(string $instanceId): string
     {
         $result = $this->ec2->describeInstances([
             'InstanceIds' => [$instanceId],

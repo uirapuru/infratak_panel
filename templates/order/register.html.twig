@@ -1,0 +1,191 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Dane rejestracyjne — Infratak{% endblock %}
+
+{% block body %}
+<div class="container py-4" style="max-width: 680px;">
+
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb" style="--bs-breadcrumb-divider-color: var(--muted); color: var(--muted);">
+            <li class="breadcrumb-item"><a href="{{ path('home') }}" class="link-info text-decoration-none">Infratak</a></li>
+            <li class="breadcrumb-item"><a href="{{ path('order_select') }}" class="link-info text-decoration-none">Wybierz serwer</a></li>
+            <li class="breadcrumb-item active" style="color: var(--text);">Dane rejestracyjne</li>
+        </ol>
+    </nav>
+
+    <div class="surface-card px-3 py-2 d-inline-flex align-items-center gap-2 mb-4">
+        <span class="small text-muted-custom">Wybrany serwer:</span>
+        <span class="fw-semibold">{{ serverType.name }}</span>
+        <span class="badge badge-soft">{{ serverType.price_label }}</span>
+    </div>
+
+    {% if errors._general is defined %}
+    <div class="alert alert-danger mb-4">{{ errors._general }}</div>
+    {% endif %}
+
+    <header class="mb-4">
+        <h1 class="h2 fw-bold mb-1">Dane rejestracyjne</h1>
+        <p class="text-muted-custom">Wypełnij formularz — tworzone jest konto dostępowe do panelu oraz nowy serwer ATAK.</p>
+    </header>
+
+    <form action="{{ path('order_register', {'type': type}) }}" method="post" novalidate>
+
+        <p class="text-uppercase small fw-semibold mb-3" style="color: var(--accent); letter-spacing: .06em;">Dane kontaktowe</p>
+
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-sm-6">
+                <label class="form-label" for="firstName">Imię <span class="text-danger">*</span></label>
+                <input
+                    type="text"
+                    class="form-control bg-dark text-white border-secondary {{ errors.firstName is defined ? 'is-invalid' : '' }}"
+                    id="firstName" name="firstName"
+                    value="{{ values.firstName }}"
+                    autocomplete="given-name"
+                    required autofocus
+                >
+                {% if errors.firstName is defined %}
+                <div class="invalid-feedback">{{ errors.firstName }}</div>
+                {% endif %}
+            </div>
+            <div class="col-12 col-sm-6">
+                <label class="form-label" for="lastName">Nazwisko <span class="text-danger">*</span></label>
+                <input
+                    type="text"
+                    class="form-control bg-dark text-white border-secondary {{ errors.lastName is defined ? 'is-invalid' : '' }}"
+                    id="lastName" name="lastName"
+                    value="{{ values.lastName }}"
+                    autocomplete="family-name"
+                    required
+                >
+                {% if errors.lastName is defined %}
+                <div class="invalid-feedback">{{ errors.lastName }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="phone">Telefon kontaktowy</label>
+            <input
+                type="tel"
+                class="form-control bg-dark text-white border-secondary"
+                id="phone" name="phone"
+                value="{{ values.phone }}"
+                autocomplete="tel"
+                placeholder="+48 000 000 000"
+            >
+        </div>
+
+        <hr style="border-color: var(--border); margin: 1.5rem 0;">
+        <p class="text-uppercase small fw-semibold mb-3" style="color: var(--accent); letter-spacing: .06em;">Konto dostępowe do panelu</p>
+
+        <div class="mb-3">
+            <label class="form-label" for="email">Adres e-mail (login) <span class="text-danger">*</span></label>
+            <input
+                type="email"
+                class="form-control bg-dark text-white border-secondary {{ errors.email is defined ? 'is-invalid' : '' }}"
+                id="email" name="email"
+                value="{{ values.email }}"
+                autocomplete="email"
+                required
+            >
+            {% if errors.email is defined %}
+            <div class="invalid-feedback">{{ errors.email }}</div>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="password">Hasło do panelu <span class="text-danger">*</span></label>
+            <input
+                type="password"
+                class="form-control bg-dark text-white border-secondary {{ errors.password is defined ? 'is-invalid' : '' }}"
+                id="password" name="password"
+                autocomplete="new-password"
+                minlength="8"
+                required
+            >
+            <div class="form-text text-muted-custom">Minimum 8 znaków.</div>
+            {% if errors.password is defined %}
+            <div class="invalid-feedback">{{ errors.password }}</div>
+            {% endif %}
+        </div>
+
+        <hr style="border-color: var(--border); margin: 1.5rem 0;">
+        <p class="text-uppercase small fw-semibold mb-3" style="color: var(--accent); letter-spacing: .06em;">Adres serwera</p>
+
+        <div class="mb-4">
+            <label class="form-label" for="subdomain">Nazwa subdomeny <span class="text-danger">*</span></label>
+            <div class="input-group">
+                <input
+                    type="text"
+                    class="form-control bg-dark text-white border-secondary {{ errors.subdomain is defined ? 'is-invalid' : '' }}"
+                    id="subdomain" name="subdomain"
+                    value="{{ values.subdomain }}"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="np. moj-serwer"
+                    pattern="[a-z0-9][a-z0-9\-]{0,30}[a-z0-9]|[a-z0-9]"
+                    required
+                >
+                <span class="input-group-text bg-dark text-muted-custom border-secondary">.infratak.com</span>
+                {% if errors.subdomain is defined %}
+                <div class="invalid-feedback">{{ errors.subdomain }}</div>
+                {% endif %}
+            </div>
+            <div class="form-text text-muted-custom">
+                Tylko małe litery a–z, cyfry i myślniki. Twój serwer będzie dostępny pod tym adresem.
+            </div>
+            <div id="domain-preview" class="mt-2 small" style="color: var(--accent); display:none;">
+                Adres serwera: <strong id="domain-preview-text"></strong>
+            </div>
+        </div>
+
+        <hr style="border-color: var(--border); margin: 1.5rem 0;">
+        <p class="text-uppercase small fw-semibold mb-3" style="color: var(--accent); letter-spacing: .06em;">Kod promocyjny</p>
+
+        <div class="mb-4">
+            <label class="form-label" for="promoCode">Kod promocyjny</label>
+            <input
+                type="text"
+                class="form-control bg-dark text-white border-secondary {{ errors.promoCode is defined ? 'is-invalid' : '' }}"
+                id="promoCode" name="promoCode"
+                value="{{ values.promoCodeInput ?? '' }}"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="np. ALPHA2026"
+                style="text-transform: uppercase; letter-spacing: .05em;"
+            >
+            <div class="form-text text-muted-custom">Jeśli posiadasz kod dostępu, wpisz go tutaj. Kod określa czas działania serwera.</div>
+            {% if errors.promoCode is defined %}
+            <div class="invalid-feedback">{{ errors.promoCode }}</div>
+            {% endif %}
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-accent px-4">Utwórz serwer &rarr;</button>
+            <a href="{{ path('order_select') }}" class="btn btn-outline-secondary">Wróć</a>
+        </div>
+
+    </form>
+</div>
+
+<script>
+(function () {
+    const input = document.getElementById('subdomain');
+    const preview = document.getElementById('domain-preview');
+    const previewText = document.getElementById('domain-preview-text');
+
+    input.addEventListener('input', function () {
+        const val = this.value.trim().toLowerCase();
+        if (val.length >= 2) {
+            previewText.textContent = val + '.infratak.com';
+            preview.style.display = '';
+        } else {
+            preview.style.display = 'none';
+        }
+
+        // Normalize input to lowercase on the fly
+        this.value = this.value.toLowerCase().replace(/[^a-z0-9\-]/g, '');
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Zamów serwer ATAK — Infratak{% endblock %}
+
+{% block body %}
+<div class="container py-4" style="max-width: 780px;">
+
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb" style="--bs-breadcrumb-divider-color: var(--muted); color: var(--muted);">
+            <li class="breadcrumb-item"><a href="{{ path('home') }}" class="link-info text-decoration-none">Infratak</a></li>
+            <li class="breadcrumb-item active" style="color: var(--text);">Wybierz serwer</li>
+        </ol>
+    </nav>
+
+    <header class="mb-4">
+        <h1 class="h2 fw-bold mb-1">Wybierz typ serwera</h1>
+        <p class="text-muted-custom">Zaznacz opcję i kliknij <strong>Dalej</strong>, aby przejść do płatności.</p>
+    </header>
+
+    <form action="{{ path('order_register') }}" method="get" id="server-select-form">
+        <div class="d-flex flex-column gap-3 mb-4">
+            {% for key, server in serverTypes %}
+            <label class="server-card surface-card p-4 d-flex gap-3 align-items-start" style="cursor:pointer;" for="type_{{ key }}">
+                <div class="pt-1">
+                    <input
+                        type="radio"
+                        name="type"
+                        id="type_{{ key }}"
+                        value="{{ key }}"
+                        class="form-check-input server-radio"
+                        style="width: 1.25rem; height: 1.25rem; accent-color: var(--accent);"
+                        {% if loop.first %}checked{% endif %}
+                    >
+                </div>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                        <span class="fw-bold fs-5">{{ server.name }}</span>
+                        <span class="badge badge-soft px-3 py-2 text-nowrap">{{ server.price_label }}</span>
+                    </div>
+                    <p class="text-muted-custom mb-3" style="font-size: 0.95rem;">{{ server.description }}</p>
+                    <ul class="list-clean mb-0" style="font-size: 0.9rem; color: var(--muted);">
+                        {% for feature in server.features %}
+                        <li class="d-flex align-items-baseline gap-2 mb-1">
+                            <span style="color: var(--accent); flex-shrink:0;">✓</span>
+                            {{ feature }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-accent px-4">
+                Dalej &rarr;
+            </button>
+            <a href="{{ path('home') }}" class="btn btn-outline-secondary">Anuluj</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.server-card {
+    border-radius: 0.9rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.server-card:has(.server-radio:checked) {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.25);
+}
+</style>
+{% endblock %}

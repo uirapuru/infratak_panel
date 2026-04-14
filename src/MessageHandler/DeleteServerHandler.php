@@ -70,25 +70,12 @@ final readonly class DeleteServerHandler
                 ],
             );
         } catch (\Throwable $exception) {
-            $this->dispatchProjection(
-                serverId: $message->serverId,
-                status: ServerStatus::FAILED->value,
-                step: ServerStep::CLEANUP->value,
-                awsInstanceId: null,
-                clearAwsInstanceId: false,
-                publicIp: null,
-                clearPublicIp: false,
-                lastError: $exception->getMessage(),
-                clearLastError: false,
-                startedAt: $server->getStartedAt(),
-                endedAt: new \DateTimeImmutable(),
-                logLevel: 'error',
-                logMessage: 'AWS cleanup failed.',
-                logContext: [
-                    'target' => 'cleanup',
-                ],
-            );
-
+            // Do not dispatch a projection on each failed attempt — the handler re-throws so
+            // RabbitMQ retries up to the configured max_retries. Dispatching a FAILED projection
+            // here would create one ServerOperationLog entry per retry attempt (up to 5), filling
+            // the log with duplicate entries. The error is recorded via the logger instead.
+            // A FAILED projection is dispatched only after the final retry is exhausted by the
+            // Messenger failure transport (see TODO #15 in docs/todo.md).
             $this->logger->error('AWS cleanup failed', [
                 'serverId' => $message->serverId,
                 'error' => $exception->getMessage(),

@@ -80,6 +80,10 @@ final readonly class ServerProjectionHandler
             $server->setEndedAt(null);
         }
 
+        if ($message->clearSleepAt) {
+            $server->setSleepAt(null);
+        }
+
         $log = new ServerOperationLog(
             $server,
             $message->logLevel,

@@ -53,6 +53,7 @@ final readonly class StartServerHandler
                 logMessage: 'Manual AWS start failed.',
                 logContext: [
                     'target' => 'manual',
+                    'error' => 'Start requested, but EC2 instance id is not available.',
                 ],
             );
 
@@ -77,6 +78,7 @@ final readonly class StartServerHandler
                 startedAt: new \DateTimeImmutable(),
                 endedAt: null,
                 clearEndedAt: true,
+                clearSleepAt: true,
                 logLevel: 'info',
                 logMessage: 'Manual AWS start completed.',
                 logContext: [
@@ -104,6 +106,7 @@ final readonly class StartServerHandler
                 logContext: [
                     'target' => 'manual',
                     'instanceId' => $instanceId,
+                    'error' => $exception->getMessage(),
                 ],
             );
 
@@ -150,6 +153,7 @@ final readonly class StartServerHandler
         string $logLevel,
         string $logMessage,
         array $logContext,
+        bool $clearSleepAt = false,
     ): void {
         $this->messageBus->dispatch(new ServerProjectionMessage(
             serverId: $serverId,
@@ -164,6 +168,7 @@ final readonly class StartServerHandler
             startedAt: $startedAt,
             endedAt: $endedAt,
             clearEndedAt: $clearEndedAt,
+            clearSleepAt: $clearSleepAt,
             logLevel: $logLevel,
             logMessage: $logMessage,
             logContext: $logContext,

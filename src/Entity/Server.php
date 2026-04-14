@@ -116,6 +116,19 @@ class Server
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $otsAdminPasswordRotatedAt = null;
 
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'owner_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $owner = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $subscriptionPaidUntil = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $subscriptionExpiredAt = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $subscriptionTerminationQueuedAt = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Groups(['server:read'])]
     private \DateTimeImmutable $createdAt;
@@ -411,6 +424,58 @@ class Server
     public function setOtsAdminPasswordRotatedAt(?\DateTimeImmutable $otsAdminPasswordRotatedAt): self
     {
         $this->otsAdminPasswordRotatedAt = $otsAdminPasswordRotatedAt;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getOwner(): ?User
+    {
+        return $this->owner;
+    }
+
+    public function setOwner(?User $owner): self
+    {
+        $this->owner = $owner;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getSubscriptionPaidUntil(): ?\DateTimeImmutable
+    {
+        return $this->subscriptionPaidUntil;
+    }
+
+    public function setSubscriptionPaidUntil(?\DateTimeImmutable $subscriptionPaidUntil): self
+    {
+        $this->subscriptionPaidUntil = $subscriptionPaidUntil;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getSubscriptionExpiredAt(): ?\DateTimeImmutable
+    {
+        return $this->subscriptionExpiredAt;
+    }
+
+    public function setSubscriptionExpiredAt(?\DateTimeImmutable $subscriptionExpiredAt): self
+    {
+        $this->subscriptionExpiredAt = $subscriptionExpiredAt;
+        $this->markUpdated();
+
+        return $this;
+    }
+
+    public function getSubscriptionTerminationQueuedAt(): ?\DateTimeImmutable
+    {
+        return $this->subscriptionTerminationQueuedAt;
+    }
+
+    public function setSubscriptionTerminationQueuedAt(?\DateTimeImmutable $subscriptionTerminationQueuedAt): self
+    {
+        $this->subscriptionTerminationQueuedAt = $subscriptionTerminationQueuedAt;
         $this->markUpdated();
 
         return $this;

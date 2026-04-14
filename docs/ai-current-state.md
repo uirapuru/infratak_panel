@@ -29,11 +29,27 @@ Important separation:
 
 - Form login at `/admin/login`, logout at `/admin/logout`.
 - Production access path: `https://infratak.com/admin` (HTTPS on landing nginx, then proxy to admin nginx).
-- Roles: `ROLE_ADMIN` (full panel access), `ROLE_SUPER_ADMIN` (+ user management).
+- Roles: `ROLE_ADMIN` (full panel access), `ROLE_SUPER_ADMIN` (+ user management), `ROLE_USER` (client — own servers only).
 - Role hierarchy: `ROLE_SUPER_ADMIN → ROLE_ADMIN → ROLE_USER`.
+- `/admin` is accessible to `ROLE_USER` — clients land directly on their server list.
 - User management CRUD available in the panel under "Administracja → Użytkownicy" (visible only to `ROLE_SUPER_ADMIN`).
 - New users via console: `php bin/console app:admin:create-user <email> <password> [--super-admin]`
 - Password reset via console: `php bin/console app:admin:set-password <email> <password>`
+
+### Multi-tenancy (ROLE_USER vs ROLE_ADMIN)
+
+`ROLE_USER` (client accounts) see a restricted view of the admin panel:
+
+| Feature | ROLE_ADMIN | ROLE_USER |
+|---|---|---|
+| Server list | all servers | own servers only (filtered by `owner`) |
+| Server detail page | full (all fields, logs) | limited (domain, status, subscription, OTS credentials) |
+| Operation logs | visible | hidden |
+| Technical fields (step, awsInstanceId, owner, runtime, etc.) | visible | hidden |
+| OTS admin credentials | visible in detail | visible in detail |
+| Actions on index | all | "Pokaż szczegóły" + "Reset admin password" |
+| Admin-only menu items | visible | hidden |
+| Subscriptions / Promo codes / Operation logs menu | visible | hidden |
 
 ### Production operations
 
@@ -219,6 +235,35 @@ Rules respected in implementation:
   - remote execution through AWS SSM
 - This keeps the orchestrator on SSM while reusing the provisioning repository contents.
 
+### Order Flow (Promo Code Gated Registration)
+
+Public flow for new clients: `/zamow` → `/zamow/rejestracja` → `/zamow/sukces`
+
+- `/zamow` — server type selection (currently: OpenTAK Server)
+- `/zamow/rejestracja?type=opentak` — registration form: firstName, lastName, phone, email, password, subdomain, **promoCode** (required)
+- Promo code is validated against `PromoCode` entity; determines `durationDays` of server runtime
+- On success:
+  - If email already exists → use existing account (add server to it, don't change password)
+  - If new email → create `User` with `ROLE_USER`, active=true
+  - Create server via `ServerCreationService`
+  - Call `SubscriptionService::purchase()` for `promoCode.durationDays` days
+  - Increment `promoCode.usedCount`
+  - Redirect to `/zamow/sukces` (credentials shown once via session)
+- `/zamow/sukces` — one-time display of: server domain, portal domain, panel login, duration days
+
+### Promo Code Entity (`PromoCode`)
+
+| Field | Type | Description |
+|---|---|---|
+| `code` | string(64), unique | Uppercase; auto-uppercased on save |
+| `durationDays` | int | Server runtime granted (default: 1) |
+| `maxUses` | int\|null | Max redemptions; null = unlimited |
+| `usedCount` | int | Redemptions so far |
+| `expiresAt` | DateTimeImmutable\|null | Code expiry; null = never |
+| `isActive` | bool | Can be deactivated without deleting |
+
+Admin CRUD: "Promo codes" in menu (ROLE_ADMIN only). `findValidByCode()` in repository (case-insensitive, checks active + expiry).
+
 ### User Registration and Email Verification
 - Public registration endpoint:
   - GET/POST `/register` (form + validation)
@@ -258,15 +303,22 @@ Rules respected in implementation:
   - action: diagnose (queues DiagnoseServerMessage on provisioning transport)
   - action: start server (queues StartServerMessage)
   - action: reset admin password (queues RotateAdminPasswordMessage)
+  - action: change admin password from server detail (accepts a provided password, queues RotateAdminPasswordMessage)
+  - action: add subscription from server detail (50 PLN/day; extends `subscriptionPaidUntil`)
   - for `stopped` servers, actions retry/diagnose/reset password are hidden
   - diagnose sets status=diagnosing while running
   - diagnose writes final status ready or failed
   - step is cleared when server returns to ready; on failed diagnose the step remains at the failure point
-  - one-time admin password reveal is shown in flash after post-provision rotation
-  - manual reset shows immediate one-time password in flash
-  - password value in flash has copy-to-clipboard button
+  - current OTS admin password is stored in `otsAdminPasswordCurrent` after successful rotation and is visible in the server detail view **for both ROLE_ADMIN and ROLE_USER**
+  - detail view shows OTS credentials as a table: login (`administrator`), password (with copy button), link "Otwórz panel OTS" (`https://<domain>/login`)
+  - manual reset and manual change update the same stored password after worker success
+  - password value in detail view has copy-to-clipboard button
+  - portal (`portal.{subdomain}.infratak.com`) is a separate Flask app with no admin credentials — it is NOT included in password rotation (see BUG-009)
+  - expired paid servers are stopped by `app:subscriptions:enforce`; servers not renewed within 30 days are queued for cleanup
+  - renewing a stopped server queues `StartServerMessage`
   - domain and portalDomain are rendered as clickable links in detail view
   - operation log screen in admin menu
+  - subscription purchase history screen in admin menu
 
 ### Password Rotation Flow (Current)
 ```mermaid
@@ -289,7 +341,6 @@ sequenceDiagram
     OTS-->>WH: 200 / error
     alt success
         WH->>DB: save current/previous/rotatedAt
-        WH->>DB: pendingReveal = newPassword (post-provisioning only)
     else failure
         WH->>DB: save lastError
     end

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\MessageHandler;
 
+use App\Entity\ServerOperationLog;
 use App\Message\RotateAdminPasswordMessage;
 use App\Repository\ServerRepository;
 use App\Service\Provisioning\AwsProvisioningClientInterface;
@@ -45,17 +46,23 @@ final readonly class RotateAdminPasswordHandler
         $passwordBeforeAttempt = $server->getOtsAdminPasswordCurrent() ?? $message->oldPassword;
 
         try {
-            $this->aws->rotateOtsAdminPassword($instanceId, $server->getDomain(), $message->oldPassword, $message->newPassword);
-
-            $pendingReveal = $message->origin === 'manual-reset' ? null : $message->newPassword;
+            $this->aws->rotateOtsAdminPassword($instanceId, $server->getDomain(), $server->getPortalDomain() ?? '', $message->oldPassword, $message->newPassword);
 
             $server
                 ->setOtsAdminPasswordPrevious($passwordBeforeAttempt)
                 ->setOtsAdminPasswordCurrent($message->newPassword)
-                ->setOtsAdminPasswordPendingReveal($pendingReveal)
+                ->setOtsAdminPasswordPendingReveal(null)
                 ->setOtsAdminPasswordRotatedAt(new \DateTimeImmutable())
                 ->setLastError(null);
 
+            $this->entityManager->persist(new ServerOperationLog(
+                $server,
+                'info',
+                'OTS admin password rotated successfully.',
+                $server->getStatus()->value,
+                $server->getStep()->value,
+                ['origin' => $message->origin, 'instanceId' => $instanceId],
+            ));
             $this->entityManager->flush();
 
             $this->logger->info('OTS admin password rotation attempt succeeded.', [
@@ -65,6 +72,15 @@ final readonly class RotateAdminPasswordHandler
             ]);
         } catch (\Throwable $exception) {
             $server->setLastError($exception->getMessage());
+
+            $this->entityManager->persist(new ServerOperationLog(
+                $server,
+                'error',
+                'OTS admin password rotation failed.',
+                $server->getStatus()->value,
+                $server->getStep()->value,
+                ['origin' => $message->origin, 'instanceId' => $instanceId, 'error' => $exception->getMessage()],
+            ));
             $this->entityManager->flush();
 
             $this->logger->error('OTS admin password rotation attempt failed.', [

@@ -1,0 +1,290 @@
+{% extends '@!EasyAdmin/crud/index.html.twig' %}
+
+{% block main %}
+    {{ parent() }}
+
+    {% if ea().crud.controllerFqcn == 'App\\Controller\\AdminServerCrudController' %}
+
+    <div id="server-log-tooltip"
+         style="display:none; position:fixed; z-index:9999; background:#1e293b; color:#e2e8f0;
+                border-radius:8px; padding:12px 16px; max-width:560px; min-width:320px;
+                box-shadow:0 8px 32px rgba(0,0,0,0.45); font-size:12px; pointer-events:none;
+                border:1px solid #334155; line-height:1.5;">
+    </div>
+
+    <script>
+    (function () {
+        'use strict';
+
+        const BADGE_COLORS = {
+            creating:'info', diagnosing:'primary', provisioning:'info',
+            cert_pending:'warning', ready:'success', failed:'danger',
+            deleted:'secondary', stopped:'warning', none:'secondary'
+        };
+        const LEVEL_COLORS = { info:'info', warning:'warning', error:'danger', debug:'secondary' };
+
+        function esc(str) {
+            return String(str ?? '')
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function badge(val, colorMap) {
+            if (!val) return '';
+            const color = colorMap[val] || 'secondary';
+            return `<span class="badge bg-${color}">${esc(val)}</span>`;
+        }
+
+        /* ── Status polling ──────────────────────────────────────── */
+
+        function updateRow(server) {
+            const row = document.querySelector(`tr[data-id="${CSS.escape(server.id)}"]`);
+            if (!row) return;
+            const statusEl = row.querySelector('[data-field-property="status"]');
+            const stepEl   = row.querySelector('[data-field-property="step"]');
+            if (statusEl) {
+                statusEl.className = `badge bg-${BADGE_COLORS[server.status] || 'secondary'}`;
+                statusEl.textContent = server.status;
+            }
+            if (stepEl) {
+                if (server.step === 'none') { stepEl.className = ''; stepEl.textContent = ''; }
+                else {
+                    stepEl.className = `badge bg-${BADGE_COLORS[server.step] || 'secondary'}`;
+                    stepEl.textContent = server.step;
+                }
+            }
+            row.dataset.serverLogs = JSON.stringify(server.recentLogs);
+        }
+
+        function poll() {
+            fetch('/admin/api/servers')
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(list => list.forEach(updateRow))
+                .catch(() => {});
+        }
+
+        /* ── Raw context panel (klik w wiersz logu) ─────────────── */
+
+        function buildRawPanel(ctx) {
+            if (!ctx || Object.keys(ctx).length === 0) {
+                return '<em style="color:#64748b;font-size:12px;">Brak dodatkowego kontekstu.</em>';
+            }
+            const fullLog = ctx.fullLog ?? ctx.output ?? null;
+            const rest    = Object.entries(ctx).filter(([k]) => k !== 'fullLog' && k !== 'output');
+            let html = '';
+            if (rest.length > 0) {
+                html += `<table style="border-collapse:collapse;margin-bottom:${fullLog ? '14px' : '0'}">` +
+                    rest.map(([k,v]) =>
+                        `<tr>
+                            <td style="padding:3px 18px 3px 0;white-space:nowrap;color:#64748b;font-size:11px;vertical-align:top;">${esc(k)}</td>
+                            <td style="padding:3px 0;color:#cbd5e1;font-size:12px;word-break:break-all;">${esc(String(v ?? ''))}</td>
+                        </tr>`
+                    ).join('') + `</table>`;
+            }
+            if (fullLog) {
+                html += `<div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Pełny log</div>
+                    <pre style="background:#020617;color:#94a3b8;padding:12px;border-radius:6px;
+                                font-size:11px;line-height:1.6;overflow-x:auto;max-height:420px;
+                                margin:0;white-space:pre-wrap;word-break:break-word;">${esc(String(fullLog))}</pre>`;
+            }
+            return html;
+        }
+
+        function attachLogRowClicks(tbody) {
+            tbody.addEventListener('click', e => {
+                const logRow = e.target.closest('tr[data-log-ctx]');
+                if (!logRow) return;
+
+                // Toggle existing raw panel
+                const next = logRow.nextElementSibling;
+                if (next && next.dataset.rawFor === logRow.dataset.logCtx) {
+                    const visible = next.style.display !== 'none';
+                    next.style.display = visible ? 'none' : '';
+                    logRow.style.opacity = visible ? '1' : '0.7';
+                    return;
+                }
+
+                let ctx = {};
+                try { ctx = JSON.parse(logRow.dataset.logCtx); } catch {}
+
+                const detailRow = document.createElement('tr');
+                detailRow.dataset.rawFor = logRow.dataset.logCtx;
+                detailRow.style.cssText = 'background:#020617;';
+                const td = document.createElement('td');
+                td.colSpan = logRow.children.length;
+                td.style.cssText = 'padding:12px 16px;border-bottom:2px solid #0f172a;';
+                td.innerHTML = buildRawPanel(ctx);
+                detailRow.appendChild(td);
+                logRow.after(detailRow);
+                logRow.style.opacity = '0.7';
+            });
+        }
+
+        /* ── Log rows renderer ───────────────────────────────────── */
+
+        function renderLogRows(logs) {
+            return logs.map(l => {
+                const ts = new Date(l.createdAt).toLocaleString('pl-PL', {
+                    day:'2-digit', month:'2-digit', year:'numeric',
+                    hour:'2-digit', minute:'2-digit', second:'2-digit'
+                });
+                const ctxEntries = Object.entries(l.contextData ?? {});
+                const hasFullLog = !!(l.contextData?.fullLog || l.contextData?.output);
+                const ctxPreview = ctxEntries
+                    .filter(([k]) => k !== 'fullLog' && k !== 'output')
+                    .map(([k,v]) => {
+                        const val = typeof v === 'string' && v.length > 80 ? v.slice(0,80)+'…' : v;
+                        return `<span style="color:#64748b">${esc(k)}:</span> ${esc(String(val??''))}`;
+                    }).join('&ensp;·&ensp;')
+                    + (hasFullLog ? (ctxEntries.length > (hasFullLog?1:0) ? '&ensp;·&ensp;' : '') + '<span style="color:#3b82f6;font-style:italic;">fullLog ↓</span>' : '');
+
+                const rowBg = l.level==='error' ? 'rgba(239,68,68,.08)'
+                            : l.level==='warning' ? 'rgba(234,179,8,.06)' : '';
+                const ctxJson = esc(JSON.stringify(l.contextData ?? {}));
+                return `<tr data-log-ctx="${ctxJson}"
+                            style="background:${rowBg};border-bottom:1px solid #1e293b;cursor:pointer;"
+                            title="Kliknij, aby zobaczyć pełny kontekst">
+                    <td style="padding:5px 12px;white-space:nowrap;color:#94a3b8;font-size:11px;">${esc(ts)}</td>
+                    <td style="padding:5px 10px;">${badge(l.level,LEVEL_COLORS)}</td>
+                    <td style="padding:5px 10px;">${badge(l.status,BADGE_COLORS)}</td>
+                    <td style="padding:5px 10px;">${l.step&&l.step!=='none'?badge(l.step,BADGE_COLORS):''}</td>
+                    <td style="padding:5px 10px;color:#e2e8f0;font-size:12px;">${esc(l.message)}</td>
+                    <td style="padding:5px 10px;color:#94a3b8;font-size:11px;max-width:280px;">${ctxPreview}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        /* ── Expand server row (klik w wiersz serwera) ───────────── */
+
+        function colCount() {
+            const thead = document.querySelector('.table thead tr');
+            return thead ? thead.children.length : 10;
+        }
+
+        function getOrCreateExpandRow(mainRow) {
+            const id = `log-expand-${mainRow.dataset.id}`;
+            let expandRow = document.getElementById(id);
+            if (!expandRow) {
+                expandRow = document.createElement('tr');
+                expandRow.id = id;
+                expandRow.style.cssText = 'background:#0f172a;';
+                const td = document.createElement('td');
+                td.colSpan = colCount();
+                td.style.cssText = 'padding:0;border-top:2px solid #334155;';
+                expandRow.appendChild(td);
+                mainRow.after(expandRow);
+            }
+            return expandRow;
+        }
+
+        function toggleExpandRow(mainRow) {
+            const serverId   = mainRow.dataset.id;
+            const expandRow  = document.getElementById(`log-expand-${serverId}`);
+
+            if (expandRow && expandRow.style.display !== 'none') {
+                expandRow.style.display = 'none';
+                mainRow.style.outline = '';
+                return;
+            }
+
+            const row = getOrCreateExpandRow(mainRow);
+            const td  = row.querySelector('td');
+            td.innerHTML = '<p style="color:#64748b;padding:8px 12px;margin:0;">Ładowanie…</p>';
+            row.style.display = '';
+            mainRow.style.outline = '2px solid #334155';
+            mainRow.style.outlineOffset = '-2px';
+
+            fetch(`/admin/api/servers/${encodeURIComponent(serverId)}`)
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(data => {
+                    if (!data.logs || data.logs.length === 0) {
+                        td.innerHTML = '<p style="color:#64748b;padding:8px 12px;margin:0;">Brak wpisów.</p>';
+                        return;
+                    }
+                    td.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+                        <thead><tr style="border-bottom:1px solid #334155;">
+                            <th style="padding:6px 12px;color:#475569;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Czas</th>
+                            <th style="padding:6px 10px;color:#475569;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Level</th>
+                            <th style="padding:6px 10px;color:#475569;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Status</th>
+                            <th style="padding:6px 10px;color:#475569;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Step</th>
+                            <th style="padding:6px 10px;color:#475569;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Wiadomość</th>
+                            <th style="padding:6px 10px;color:#475569;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Kontekst</th>
+                        </tr></thead>
+                        <tbody>${renderLogRows(data.logs)}</tbody>
+                    </table>`;
+                    attachLogRowClicks(td.querySelector('tbody'));
+                })
+                .catch(() => { td.innerHTML = '<p class="text-danger" style="padding:8px 12px;margin:0;">Błąd pobierania logów.</p>'; });
+        }
+
+        document.addEventListener('click', e => {
+            if (e.target.closest('a, button, .dropdown-menu, input[type="checkbox"]')) return;
+            const row = e.target.closest('tr[data-id]');
+            if (!row) return;
+            e.stopPropagation();
+            e.preventDefault();
+            hideTooltip();
+            toggleExpandRow(row);
+        }, true);
+
+        /* ── Tooltip (3 s nieruchomego kursora) ─────────────────── */
+        const tooltip  = document.getElementById('server-log-tooltip');
+        const DELAY    = 3000;
+        let hoverTimer = null;
+        let currentRow = null;
+        let lastX = 0, lastY = 0;
+
+        function hideTooltip() {
+            tooltip.style.display = 'none';
+            clearTimeout(hoverTimer);
+            hoverTimer = null;
+            currentRow = null;
+        }
+
+        function showTooltipForRow(row) {
+            let logs;
+            try { logs = JSON.parse(row.dataset.serverLogs || '[]'); } catch { return; }
+            if (!logs.length) return;
+
+            const rows = logs.map(l => {
+                const ts = new Date(l.createdAt).toLocaleString('pl-PL',
+                    {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+                return `<tr>
+                    <td style="padding:3px 10px 3px 0;white-space:nowrap;color:#94a3b8;">${esc(ts)}</td>
+                    <td style="padding:3px 8px 3px 0;">${badge(l.level,LEVEL_COLORS)}</td>
+                    <td style="padding:3px 8px 3px 0;">${l.status?badge(l.status,BADGE_COLORS):''}</td>
+                    <td style="padding:3px 0;color:#cbd5e1;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l.message)}</td>
+                </tr>`;
+            }).join('');
+            tooltip.innerHTML = `<div style="font-weight:600;margin-bottom:8px;color:#f1f5f9;border-bottom:1px solid #334155;padding-bottom:6px;">Ostatnie zdarzenia</div>
+                <table style="border-collapse:collapse;width:100%;">${rows}</table>`;
+            tooltip.style.display = 'block';
+            const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+            tooltip.style.left = Math.min(lastX+18, window.innerWidth -tw-10)+'px';
+            tooltip.style.top  = Math.max(8, Math.min(lastY-12, window.innerHeight-th-10))+'px';
+        }
+
+        document.addEventListener('mousemove', e => {
+            lastX = e.clientX; lastY = e.clientY;
+            const row = e.target.closest('tr[data-id]');
+            if (!row) { hideTooltip(); return; }
+            if (row !== currentRow) {
+                hideTooltip(); currentRow = row;
+                hoverTimer = setTimeout(() => showTooltipForRow(row), DELAY);
+                return;
+            }
+            if (tooltip.style.display !== 'none') {
+                const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+                tooltip.style.left = Math.min(e.clientX+18, window.innerWidth -tw-10)+'px';
+                tooltip.style.top  = Math.max(8, Math.min(e.clientY-12, window.innerHeight-th-10))+'px';
+            }
+        });
+
+        document.addEventListener('mouseleave', hideTooltip);
+
+        poll();
+        setInterval(poll, 3000);
+    })();
+    </script>
+    {% endif %}
+{% endblock %}

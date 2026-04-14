@@ -24,6 +24,7 @@ final class ServerProjectionMessage
         public readonly ?\DateTimeImmutable $startedAt = null,
         public readonly ?\DateTimeImmutable $endedAt = null,
         public readonly bool $clearEndedAt = false,
+        public readonly bool $clearSleepAt = false,
         public readonly array $logContext = [],
     ) {
     }

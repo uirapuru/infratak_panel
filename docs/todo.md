@@ -76,10 +76,13 @@ Cel:
 - dane rozliczeniowe i kontaktowe,
 - powiązanie serwerów z kontem billingowym.
 
-8. Dodać kody promocyjne:
-- rabat procentowy lub kwotowy,
-- ograniczenia ważności, liczby użyć i zakresu planów,
-- audyt użycia kodu i powiązanie z zamówieniem/subskrypcją.
+8. [DONE] Kody promocyjne (MVP):
+- [DONE] Encja `PromoCode` (code, durationDays, maxUses, usedCount, expiresAt, isActive)
+- [DONE] Rejestracja przez `/zamow/rejestracja` wymaga ważnego kodu
+- [DONE] Kod określa czas działania serwera (`durationDays`) — subskrypcja tworzona automatycznie
+- [DONE] Admin CRUD do zarządzania kodami
+- TODO: rozszerzyć o rabat procentowy/kwotowy przy podłączeniu płatności
+- TODO: powiązanie kodu z zamówieniem/subskrypcją w historii
 
 9. Dodać rozliczanie płatnościami internetowymi:
 - integracja z operatorem płatności,

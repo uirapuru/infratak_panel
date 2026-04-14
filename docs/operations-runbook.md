@@ -186,11 +186,12 @@ Uwagi:
 
 ## 7. Aktualny flow resetu hasła admina OTS
 
-1. trigger pochodzi z jednego z dwóch źródeł:
+1. trigger pochodzi z jednego z trzech źródeł:
    * automatycznie po zakończeniu provisioningu (`post-provisioning`)
    * ręcznie z akcji admin (`manual-reset`)
+   * ręcznie przez użytkownika z poziomu panelu klienta (`manual-reset` — ta sama akcja, inne uprawnienia)
 2. panel dispatchuje `RotateAdminPasswordMessage` na transport `provisioning`
-3. worker provisioning wykonuje bezpośrednie call-e REST do OTS API:
+3. worker provisioning wykonuje bezpośrednie call-e REST do OTS API **tylko dla domeny głównej** (`{subdomain}.infratak.com`):
    * `GET /api/login` (csrf + cookie)
    * `POST /api/login`
    * `POST /api/password/change`
@@ -198,11 +199,16 @@ Uwagi:
    * sukces: aktualizacja `otsAdminPasswordCurrent`, `otsAdminPasswordPrevious`, `otsAdminPasswordRotatedAt`
    * porażka: zapis błędu do `lastError` + log `OTS admin password rotation attempt failed`
 
-Uwagi:
+**Ważne — architektura serwisów na instancji:**
 
-* reset hasła nie używa już zdalnego skryptu przez SSM
-* manual reset pokazuje hasło od razu w flashu
-* reveal po provisioningu jest jednorazowy (`otsAdminPasswordPendingReveal` czyszczone po pokazaniu)
+| Serwis | Port | Technologia | Rotacja hasła |
+|---|---|---|---|
+| OpenTAK Server (OTS) | 8081 | Python (Flask-Security-Too + argon2id), PostgreSQL | **TAK** — przez `/api/login` + `/api/password/change` |
+| Boarding Portal | 5000 | Flask + gunicorn, SQLite | **NIE** — brak własnych credentiali admina, portal nie posiada kolumny hasła użytkownika |
+
+Portal NIE jest rotowany — próba wywołania `/api/login` na domenie portalu zakończyłaby się błędem (BUG-009).
+
+Aktualne hasło OTS jest widoczne w panelu w widoku szczegółów serwera — razem z loginem (`administrator`) i przyciskiem "Otwórz panel OTS".
 
 ### Szybka diagnostyka gdy reset hasła nie działa
 
@@ -223,6 +229,28 @@ docker compose logs --tail=200 worker_provisioning
 ```bash
 curl -k -I https://<server-domain>/api/login
 ```
+
+### Recovery hasła OTS przez SSM (gdy panel nie może rotować)
+
+Jeśli hasło OTS jest nieznane lub rotacja przez API nie działa, zresetuj przez SSM bezpośrednio na instancji:
+
+```bash
+# Znajdź instance ID w panelu (pole awsInstanceId) lub przez AWS CLI
+aws --region eu-central-1 ssm send-command \
+  --instance-id <INSTANCE_ID> \
+  --document-name "AWS-RunShellScript" \
+  --parameters '{"commands":["sudo -u ubuntu /home/ubuntu/.opentakserver_venv/bin/python3 - << PYEOF\nimport sys\nsys.path.insert(0, \"/home/ubuntu/.opentakserver_venv/lib/python3.12/site-packages\")\nfrom opentakserver.app import create_app\napp = create_app()\nwith app.app_context():\n    from flask_security.utils import hash_password\n    from opentakserver.extensions import db\n    from opentakserver.models.user import User\n    u = User.query.filter_by(username=\"administrator\").first()\n    u.password = hash_password(\"password\")\n    db.session.commit()\n    print(\"OK\")\nPYEOF\n"]}'
+```
+
+Po wykonaniu zaktualizuj DB panelu:
+
+```sql
+UPDATE server
+SET ots_admin_password_current = 'password', last_error = NULL
+WHERE id = '<server-uuid>';
+```
+
+Następnie użyj akcji "Reset admin password" w panelu, aby ustawić nowe bezpieczne hasło przez normalny flow.
 
 ---
 

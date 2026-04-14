@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Service\Server;
 
 use App\Entity\Server;
+use App\Entity\User;
 use App\Enum\ServerStatus;
 use App\Enum\ServerStep;
 use App\Message\CreateServerMessage;
@@ -25,9 +26,10 @@ final readonly class ServerCreationService
     ) {
     }
 
-    public function createFromName(string $rawName, ?\DateTimeImmutable $sleepAt = null): Server
+    public function createFromName(string $rawName, ?\DateTimeImmutable $sleepAt = null, ?User $owner = null): Server
     {
         $server = new Server();
+        $server->setOwner($owner);
         $server->setSleepAt($sleepAt);
         $this->initializeForProvisioning($server, $rawName);
 
@@ -59,6 +61,13 @@ final readonly class ServerCreationService
             throw new \InvalidArgumentException(sprintf('Active server with name "%s" already exists.', $name));
         }
 
+        // Preserve the current OTS password when re-provisioning a server that was already
+        // rotated, so the post-provisioning RotateAdminPasswordMessage can use the correct
+        // oldPassword. For a brand-new server the OTS default is 'password'.
+        $passwordForNextRotation = $server->getOtsAdminPasswordRotatedAt() !== null
+            ? $server->getOtsAdminPasswordCurrent()
+            : 'password';
+
         $server
             ->setName($name)
             ->setDomain(sprintf('%s.%s', $name, $this->normalizedBaseDomain()))
@@ -70,7 +79,7 @@ final readonly class ServerCreationService
             ->setStartedAt(null)
             ->setEndedAt(null)
             ->setOtsAdminPasswordPrevious($server->getOtsAdminPasswordCurrent())
-            ->setOtsAdminPasswordCurrent('password')
+            ->setOtsAdminPasswordCurrent($passwordForNextRotation)
             ->setOtsAdminPasswordPendingReveal(null)
             ->setOtsAdminPasswordRotatedAt(null)
             ->setLastError(null);

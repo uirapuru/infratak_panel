@@ -17,4 +17,35 @@ final class ServerOperationLogRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, ServerOperationLog::class);
     }
+
+    /**
+     * Returns the most recent log entries for a given server, newest first.
+     *
+     * @return ServerOperationLog[]
+     */
+    public function findRecentForServer(string $serverId, int $limit = 5): array
+    {
+        return $this->createQueryBuilder('log')
+            ->andWhere('log.server = :serverId')
+            ->setParameter('serverId', $serverId)
+            ->orderBy('log.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Returns all log entries for a given server, newest first.
+     *
+     * @return ServerOperationLog[]
+     */
+    public function findAllForServer(string $serverId): array
+    {
+        return $this->createQueryBuilder('log')
+            ->andWhere('log.server = :serverId')
+            ->setParameter('serverId', $serverId)
+            ->orderBy('log.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }

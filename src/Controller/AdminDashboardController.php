@@ -30,10 +30,21 @@ final class AdminDashboardController extends AbstractDashboardController
 
     public function index(): Response
     {
+        // Non-admins land directly on their server list — the dashboard widget is admin-only
+        if (!$this->isGranted('ROLE_ADMIN')) {
+            return $this->redirect(
+                $this->adminUrlGenerator
+                    ->unsetAll()
+                    ->setController(AdminServerCrudController::class)
+                    ->setAction(Action::INDEX)
+                    ->generateUrl()
+            );
+        }
+
         // Count servers by status
         $readyCount = $this->serverRepository->count(['status' => ServerStatus::READY->value]);
         $failedCount = $this->serverRepository->count(['status' => ServerStatus::FAILED->value]);
-        
+
         // Count servers in provisioning (not READY, not FAILED, not DELETED)
         $provisioningCount = $this->serverRepository->countInProvisioning();
 
@@ -84,10 +95,17 @@ final class AdminDashboardController extends AbstractDashboardController
 
     public function configureMenuItems(): iterable
     {
-        yield MenuItem::linkToDashboard('Dashboard', 'fa fa-home');
-        yield MenuItem::linkTo(AdminServerCrudController::class, 'Servers', 'fa fa-server');
-        yield MenuItem::linkTo(AdminServerOperationLogCrudController::class, 'Operation logs', 'fa fa-list');
-        yield MenuItem::section('Administracja');
+        yield MenuItem::linkToDashboard('Dashboard', 'fa fa-home')
+            ->setPermission('ROLE_ADMIN');
+        yield MenuItem::linkTo(AdminServerCrudController::class, 'Serwery', 'fa fa-server');
+        yield MenuItem::linkTo(AdminServerSubscriptionCrudController::class, 'Subscriptions', 'fa fa-credit-card')
+            ->setPermission('ROLE_ADMIN');
+        yield MenuItem::linkTo(AdminPromoCodeCrudController::class, 'Promo codes', 'fa fa-ticket')
+            ->setPermission('ROLE_ADMIN');
+        yield MenuItem::linkTo(AdminServerOperationLogCrudController::class, 'Operation logs', 'fa fa-list')
+            ->setPermission('ROLE_ADMIN');
+        yield MenuItem::section('Administracja')
+            ->setPermission('ROLE_ADMIN');
         yield MenuItem::linkTo(AdminUserCrudController::class, 'Użytkownicy', 'fa fa-users')
             ->setPermission('ROLE_SUPER_ADMIN');
         yield MenuItem::section();

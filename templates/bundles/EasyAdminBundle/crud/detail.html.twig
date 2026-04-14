@@ -1,0 +1,226 @@
+{% extends '@!EasyAdmin/crud/detail.html.twig' %}
+
+{% block main %}
+    {{ parent() }}
+
+    {% if ea().crud.controllerFqcn == 'App\\Controller\\AdminServerCrudController' %}
+
+    <div class="card mt-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <span class="fw-semibold">Log operacji</span>
+            <span id="server-log-updated" class="text-muted small"></span>
+        </div>
+        <div class="card-body p-0">
+            <div id="server-log-table-wrap" style="overflow-x:auto;">
+                <table class="table table-sm mb-0" id="server-log-table">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width:145px;">Czas</th>
+                            <th style="width:70px;">Level</th>
+                            <th style="width:100px;">Status</th>
+                            <th style="width:90px;">Step</th>
+                            <th>Wiadomość</th>
+                            <th style="width:28%;">Kontekst</th>
+                        </tr>
+                    </thead>
+                    <tbody id="server-log-tbody">
+                        <tr><td colspan="6" class="text-center text-muted py-3">Ładowanie…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        'use strict';
+
+        const SERVER_ID = {{ entity.primaryKeyValue|json_encode|raw }};
+
+        const BADGE_COLORS = {
+            creating:'info', diagnosing:'primary', provisioning:'info',
+            cert_pending:'warning', ready:'success', failed:'danger',
+            deleted:'secondary', stopped:'warning', none:'secondary'
+        };
+        const LEVEL_COLORS = { info:'info', warning:'warning', error:'danger', debug:'secondary' };
+
+        function esc(str) {
+            return String(str ?? '')
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function badge(val, colorMap) {
+            if (!val) return '';
+            const color = colorMap[val] || 'secondary';
+            return `<span class="badge bg-${color}">${esc(val)}</span>`;
+        }
+
+        /* ── Raw context panel ───────────────────────────────────── */
+
+        function buildRawPanel(ctx) {
+            if (!ctx || Object.keys(ctx).length === 0) {
+                return '<em style="color:#6c757d;font-size:12px;">Brak dodatkowego kontekstu.</em>';
+            }
+            const fullLog = ctx.fullLog ?? ctx.output ?? null;
+            const rest    = Object.entries(ctx).filter(([k]) => k !== 'fullLog' && k !== 'output');
+            let html = '';
+            if (rest.length > 0) {
+                html += `<table style="border-collapse:collapse;margin-bottom:${fullLog?'14px':'0'}">` +
+                    rest.map(([k,v]) =>
+                        `<tr>
+                            <td style="padding:3px 18px 3px 0;white-space:nowrap;color:#6c757d;font-size:11px;vertical-align:top;">${esc(k)}</td>
+                            <td style="padding:3px 0;font-size:12px;word-break:break-all;">${esc(String(v ?? ''))}</td>
+                        </tr>`
+                    ).join('') + `</table>`;
+            }
+            if (fullLog) {
+                html += `<div style="font-size:10px;color:#6c757d;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Pełny log</div>
+                    <pre style="background:#0f172a;color:#94a3b8;padding:12px;border-radius:6px;
+                                font-size:11px;line-height:1.6;overflow-x:auto;max-height:420px;
+                                margin:0;white-space:pre-wrap;word-break:break-word;">${esc(String(fullLog))}</pre>`;
+            }
+            return html;
+        }
+
+        /* ── Log table renderer ──────────────────────────────────── */
+
+        function renderLogs(logs) {
+            const tbody = document.getElementById('server-log-tbody');
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Brak wpisów</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = logs.map(l => {
+                const ts = new Date(l.createdAt).toLocaleString('pl-PL', {
+                    day:'2-digit', month:'2-digit', year:'numeric',
+                    hour:'2-digit', minute:'2-digit', second:'2-digit'
+                });
+
+                const hasFullLog = !!(l.contextData?.fullLog || l.contextData?.output);
+                const ctxPreview = Object.entries(l.contextData ?? {})
+                    .filter(([k]) => k !== 'fullLog' && k !== 'output')
+                    .map(([k,v]) => {
+                        const val = typeof v==='string'&&v.length>120 ? v.slice(0,120)+'…' : v;
+                        return `<span class="text-muted">${esc(k)}:</span> ${esc(String(val??''))}`;
+                    }).join('<br>')
+                    + (hasFullLog ? (Object.keys(l.contextData).length>1?'<br>':'') + '<span style="color:#0d6efd;font-style:italic;">fullLog ↓</span>' : '');
+
+                const rowClass = l.level==='error' ? 'table-danger'
+                               : l.level==='warning' ? 'table-warning' : '';
+                const ctxJson = esc(JSON.stringify(l.contextData ?? {}));
+
+                return `<tr class="${rowClass}" data-log-ctx="${ctxJson}"
+                            style="cursor:pointer;" title="Kliknij, aby zobaczyć pełny kontekst">
+                    <td style="white-space:nowrap;font-size:12px;">${esc(ts)}</td>
+                    <td>${badge(l.level,LEVEL_COLORS)}</td>
+                    <td>${badge(l.status,BADGE_COLORS)}</td>
+                    <td>${l.step&&l.step!=='none'?badge(l.step,BADGE_COLORS):''}</td>
+                    <td style="font-size:13px;">${esc(l.message)}</td>
+                    <td style="font-size:12px;"><small style="line-height:1.4;">${ctxPreview}</small></td>
+                </tr>`;
+            }).join('');
+
+            // Attach click handlers for raw context
+            tbody.addEventListener('click', e => {
+                const logRow = e.target.closest('tr[data-log-ctx]');
+                if (!logRow) return;
+
+                const next = logRow.nextElementSibling;
+                if (next && next.dataset.rawFor === logRow.dataset.logCtx) {
+                    const visible = next.style.display !== 'none';
+                    next.style.display = visible ? 'none' : '';
+                    logRow.style.opacity = visible ? '' : '0.7';
+                    return;
+                }
+
+                let ctx = {};
+                try { ctx = JSON.parse(logRow.dataset.logCtx); } catch {}
+
+                const detailRow = document.createElement('tr');
+                detailRow.dataset.rawFor = logRow.dataset.logCtx;
+                const td = document.createElement('td');
+                td.colSpan = logRow.children.length;
+                td.style.cssText = 'padding:14px 16px;background:#f8f9fa;border-bottom:2px solid #dee2e6;';
+                td.innerHTML = buildRawPanel(ctx);
+                detailRow.appendChild(td);
+                logRow.after(detailRow);
+                logRow.style.opacity = '0.7';
+            }, { once: false });
+        }
+
+        /* ── Status badge update ─────────────────────────────────── */
+
+        function updateStatusBadge(status) {
+            const el = document.querySelector('[data-field-property="status"]');
+            if (!el) return;
+            el.className = `badge bg-${BADGE_COLORS[status] || 'secondary'}`;
+            el.textContent = status;
+        }
+
+        /* ── Polling ─────────────────────────────────────────────── */
+
+        function poll() {
+            fetch('/admin/api/servers/' + encodeURIComponent(SERVER_ID))
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(data => {
+                    updateStatusBadge(data.status);
+                    renderLogs(data.logs);
+                    const el = document.getElementById('server-log-updated');
+                    if (el) el.textContent = 'Odświeżono: ' + new Date().toLocaleTimeString('pl-PL');
+                })
+                .catch(() => {});
+        }
+
+        poll();
+        setInterval(poll, 3000);
+
+        async function copyText(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                return;
+            }
+
+            const helper = document.createElement('textarea');
+            helper.value = text;
+            helper.setAttribute('readonly', 'readonly');
+            helper.style.position = 'fixed';
+            helper.style.left = '-9999px';
+            document.body.appendChild(helper);
+            helper.select();
+            document.execCommand('copy');
+            document.body.removeChild(helper);
+        }
+
+        document.addEventListener('click', async function (event) {
+            const button = event.target.closest('.js-copy-password');
+            if (!button) {
+                return;
+            }
+
+            event.preventDefault();
+            const text = button.getAttribute('data-copy-text') || '';
+            if (!text) {
+                return;
+            }
+
+            try {
+                await copyText(text);
+                const icon = button.querySelector('i');
+                if (icon) {
+                    icon.className = 'fa-solid fa-check';
+                }
+
+                const feedback = button.parentElement ? button.parentElement.querySelector('.js-copy-password-feedback') : null;
+                if (feedback) {
+                    feedback.classList.remove('d-none');
+                }
+            } catch (error) {
+                console.error('Could not copy password to clipboard.', error);
+            }
+        });
+    })();
+    </script>
+    {% endif %}
+{% endblock %}

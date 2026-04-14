@@ -27,9 +27,9 @@
 {%- else -%}
     {%- set badgeKey = rawValue|default('') -%}
     {%- if badgeKey == 'none' -%}
-        <span></span>
+        <span data-field-property="{{ field.property }}"></span>
     {%- else -%}
         {%- set color = colorMap[badgeKey]|default('secondary') -%}
-        <span class="badge bg-{{ color }}">{{ field.formattedValue|default(field.value)|trans|raw }}</span>
+        <span class="badge bg-{{ color }}" data-field-property="{{ field.property }}">{{ field.formattedValue|default(field.value)|trans|raw }}</span>
     {%- endif -%}
 {%- endif -%}

@@ -39,7 +39,10 @@
         <span class="badge badge-soft px-3 py-2 mb-3">{{ 'hero.badge'|trans }}</span>
         <h1 class="display-5 fw-bold mb-3">{{ 'hero.title'|trans }}</h1>
         <p class="text-muted-custom fs-5 mb-4">{{ 'hero.subtitle'|trans }}</p>
-        <a href="mailto:kontakt@infratak.pl?subject=Request%20demo" class="btn btn-accent btn-lg px-4">{{ 'hero.cta'|trans }}</a>
+        <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-md-start">
+            <a href="{{ path('order_select') }}" class="btn btn-accent btn-lg px-4">Chcę serwer ATAK</a>
+            <a href="mailto:kontakt@infratak.pl?subject=Request%20demo" class="btn btn-outline-info btn-lg px-4">{{ 'hero.cta'|trans }}</a>
+        </div>
     </header>
 
     <section class="section-pad" id="offer">

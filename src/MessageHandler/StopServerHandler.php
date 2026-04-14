@@ -78,6 +78,7 @@ final readonly class StopServerHandler
                 clearLastError: true,
                 startedAt: $server->getStartedAt(),
                 endedAt: new \DateTimeImmutable(),
+                clearSleepAt: true,
                 logLevel: 'info',
                 logMessage: 'Scheduled AWS stop completed.',
                 logContext: [
@@ -107,6 +108,7 @@ final readonly class StopServerHandler
                     'target' => 'sleep',
                     'sleepAt' => $sleepAt->format(DATE_ATOM),
                     'instanceId' => $instanceId,
+                    'error' => $exception->getMessage(),
                 ],
             );
 
@@ -147,6 +149,7 @@ final readonly class StopServerHandler
                     'target' => 'sleep',
                     'attempt' => $attempt,
                     'sleepAt' => $message->targetSleepAt->format(DATE_ATOM),
+                    'error' => $reason,
                 ],
             );
 
@@ -171,6 +174,7 @@ final readonly class StopServerHandler
                 'target' => 'sleep',
                 'attempt' => $attempt,
                 'sleepAt' => $message->targetSleepAt->format(DATE_ATOM),
+                'error' => $reason,
             ],
         );
 
@@ -204,6 +208,7 @@ final readonly class StopServerHandler
         string $logLevel,
         string $logMessage,
         array $logContext,
+        bool $clearSleepAt = false,
     ): void {
         $this->messageBus->dispatch(new ServerProjectionMessage(
             serverId: $serverId,
@@ -217,6 +222,7 @@ final readonly class StopServerHandler
             clearLastError: $clearLastError,
             startedAt: $startedAt,
             endedAt: $endedAt,
+            clearSleepAt: $clearSleepAt,
             logLevel: $logLevel,
             logMessage: $logMessage,
             logContext: $logContext,

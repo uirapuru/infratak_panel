@@ -170,6 +170,35 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    restart: unless-stopped
+    working_dir: /app
+    command: >
+      sh -c "while true; do php bin/console app:servers:sync-status; php bin/console app:subscriptions:enforce; sleep 300; done"
+    env_file:
+      - .env.deploy
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      AWS_SDK_LOAD_CONFIG: "1"
+      AWS_EC2_METADATA_DISABLED: "true"
+      APP_TIMEZONE: Europe/Warsaw
+      TZ: Europe/Warsaw
+    volumes:
+      - ./:/app:ro
+      - scheduler_cache:/app/var/cache
+      - ./var/share/.aws:/root/.aws:ro
+      - ./var/log:/var/log/infratak
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   # ── Infrastructure ─────────────────────────────────────────────────────────
 
   mariadb:
@@ -210,3 +239,4 @@ volumes:
   admin_php_cache:
   worker_provisioning_cache:
   worker_projection_cache:
+  scheduler_cache:
