@@ -4,6 +4,21 @@ Timeline of all code, configuration, and documentation changes. Auto-generated b
 
 ---
 
+## 2026-04-14 (naprawa DELETE 405 w EasyAdmin 5)
+
+### Fix: EasyAdmin 5 DELETE action zwraca 405 — brakujące askConfirmation()
+
+**Summary:** Kliknięcie "Delete" w panelu admina zwracało 405 Method Not Allowed. EasyAdmin 5 renderuje przycisk DELETE z atrybutem `data-ea-action-url`. Bez `data-action-confirmation` JS klikając przycisk robi `window.location = deleteUrl` (nawigacja GET), zamiast pokazać modal i wysłać POST z CSRF tokenem.
+
+**Root cause:** `action_group.html.twig` dodaje `data-ea-action-url` do przycisków. JS handler ignoruje elementy z `data-action-confirmation` i pozwala modalowi je obsłużyć. Bez `askConfirmation()` element NIE ma tego atrybutu → klik → GET → 405.
+
+**Files Modified:**
+- `src/Controller/AdminServerCrudController.php` — dodano `->update(Crud::PAGE_INDEX, Action::DELETE, fn => $action->askConfirmation())` i analogicznie dla `PAGE_DETAIL`
+
+**Rationale:** `askConfirmation()` dodaje `data-action-confirmation="true"`, co powoduje że JS klik otwiera modal potwierdzenia, a po confirm wysyłany jest POST przez ukryty formularz `#action-confirmation-form` z tokenem CSRF.
+
+---
+
 ## 2026-04-14 (naprawa produkcji — landing_nginx crash loop)
 
 ### Fix: lazy DNS resolution w landing.conf — admin_nginx upstream
