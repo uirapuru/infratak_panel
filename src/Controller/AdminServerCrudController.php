@@ -163,8 +163,8 @@ final class AdminServerCrudController extends AbstractCrudController
 
         return $actions
             ->disable(Action::EDIT)
-            ->update(Crud::PAGE_INDEX, Action::DELETE, static fn (Action $action) => $action->askConfirmation())
-            ->update(Crud::PAGE_DETAIL, Action::DELETE, static fn (Action $action) => $action->askConfirmation())
+            ->update(Crud::PAGE_INDEX, Action::DELETE, static fn (Action $action) => $action->renderAsForm()->askConfirmation())
+            ->update(Crud::PAGE_DETAIL, Action::DELETE, static fn (Action $action) => $action->renderAsForm()->askConfirmation())
             ->add(Crud::PAGE_INDEX, $showDetail)
             ->add('index', $retryProvisioning)
             ->add(Crud::PAGE_INDEX, $diagnoseProvisioning)
