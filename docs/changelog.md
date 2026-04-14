@@ -4,6 +4,67 @@ Timeline of all code, configuration, and documentation changes. Auto-generated b
 
 ---
 
+## 2026-04-14 (naprawa produkcji — landing_nginx crash loop)
+
+### Fix: lazy DNS resolution w landing.conf — admin_nginx upstream
+
+**Summary:** `landing_nginx` wpadał w pętlę restartu z błędem `host not found in upstream "admin_nginx"`. Nginx rozwiązuje hosty upstreamów statycznie przy parsowaniu konfiguracji. Ponieważ `admin_nginx` może startować po `landing_nginx`, DNS Docker (127.0.0.11) nie znał jeszcze tego hosta i kontener kończył się z kodem 1.
+
+**Files Modified:**
+- `docker/nginx/conf.d/landing.conf` — zmieniono `proxy_pass http://admin_nginx:80` na `set $admin_upstream http://admin_nginx:80; proxy_pass $admin_upstream;` — wymuszenie lazy resolution przez istniejący resolver 127.0.0.11
+
+**Rationale:** Zmienna w `proxy_pass` odkłada rozwiązanie DNS do czasu rzeczywistego żądania. Bez tej zmiany kolejność startu kontenerów determinuje powodzenie deployu.
+
+**Działania produkcyjne przy tym incydencie:**
+- Migracja `Version20260414090000` była już częściowo zaaplikowana na produkcji (`owner_id` istniało) — oznaczono ją ręcznie jako executed: `doctrine:migrations:version --add`
+- Uruchomiono pozostałe 2 nowe migracje (Version20260414130000, Version20260414150000)
+- Wyczyszczono cache Symfony dla obu ról (landing + admin)
+
+---
+
+## 2026-04-14 (BUG-009 — portal rotation + multi-tenancy final)
+
+### Naprawa BUG-009: usunięcie rotacji hasła portalu OTS
+
+**Summary:** Próba rotacji hasła na domenie portalu (`portal.{subdomain}.infratak.com`) przez `OtsApiClient` powodowała wyjątek — portal to oddzielna aplikacja Flask (port 5000, SQLite) bez endpointu `/api/login`. Wyjątek był re-throw'owany, co uniemożliwiało zapis `otsAdminPasswordCurrent` w DB. Kolejne retry używały nieaktualnego `oldPassword` i główna rotacja OTS też zaczynała failować. Oba serwisy miały nieprawidłowe hasło bez możliwości powrotu przez panel.
+
+**Files Modified:**
+- `src/Service/Provisioning/AwsProvisioningClient.php` — usunięto rotację portalu; `rotateOtsAdminPassword` wywołuje `OtsApiClient` tylko dla domeny głównej OTS
+- `src/Service/Provisioning/AwsProvisioningClientInterface.php` — dodano parametr `portalDomain` do sygnatury (kompletność interfejsu, nie używany przy rotacji)
+- `src/MessageHandler/RotateAdminPasswordHandler.php` — przekazuje `$server->getPortalDomain()` do metody (nieużywane, ale zachowuje zgodność interfejsu)
+- `docs/bugs.md` — dodano BUG-009 z opisem, recovery przez SSM i statusem Naprawiony
+- `docs/operations-runbook.md` — sekcja 7 przepisana; dodano tabelę architektury serwisów na instancji i procedurę recovery SSM
+
+**Rationale:** Portal (`/opt/opentak-onboarding-portal/`, Flask + gunicorn) nie posiada własnej tabeli haseł — nie obsługuje rotacji przez API. Jedynym serwisem z `/api/login` + `/api/password/change` jest OTS na porcie 8081.
+
+---
+
+### Multi-tenancy: ROLE_USER widzi szczegóły serwera z ograniczonymi polami i dane OTS
+
+**Summary:** Rozszerzono widok ROLE_USER o stronę szczegółów serwera (wcześniej była zablokowana). Użytkownik widzi domenę, status, subskrypcję i dane logowania do OTS — bez pól technicznych (step, awsInstanceId, owner, lastRetryAt, runtimeHours, logów operacyjnych). Dodano przycisk "Pokaż szczegóły" w liście serwerów dla ROLE_USER.
+
+**Files Modified:**
+- `src/Controller/AdminServerCrudController.php`:
+  - `configureActions()` — dla ROLE_USER: wyłączono EDIT/DELETE/NEW, dodano `showDetail` (action DETAIL z etykietą "Pokaż szczegóły") i `resetAdminPassword`
+  - `configureFields()` — konwersja do `yield`; pola techniczne (name, step, awsInstanceId, owner, lastRetryAt, runtimeHours, logi) osłonięte `if ($isAdmin)`
+  - Pole OTS credentials: tabela z loginem `administrator`, hasłem z przyciskiem kopiowania i linkiem "Otwórz panel OTS" — widoczna dla wszystkich użytkowników
+- `docs/ai-current-state.md` — zaktualizowano tabelę multi-tenancy
+
+**Rationale:** Klient potrzebuje dostępu do danych OTS, żeby zalogować się do swojego serwera. Dane techniczne (AWS instance ID, step provisioning, itp.) nie są dla klienta relevantne i mogłyby być mylące.
+
+---
+
+### Rejestracja: zezwolenie na istniejący email (dodaj serwer do konta)
+
+**Summary:** Jeśli przy rejestracji przez `/zamow/rejestracja` podany email już istnieje w bazie, zamiast błędu system dodaje nowy serwer do istniejącego konta (bez zmiany hasła). Klient z wieloma zamówieniami korzysta z jednego konta.
+
+**Files Modified:**
+- `src/Controller/OrderController.php` — lookup emaila przed walidacją; jeśli user istnieje — pomijany jest krok tworzenia i walidacja hasła; serwer jest tworzony i przypisywany do istniejącego konta
+
+**Rationale:** Klient może zamawiać kolejne serwery bez zakładania nowego konta za każdym razem.
+
+---
+
 ## 2026-04-14 (kody promocyjne)
 
 ### Rejestracja: blokada bez płatności + kody promocyjne

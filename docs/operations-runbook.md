@@ -354,3 +354,62 @@ Scenariusze objęte testami:
 - Rejestracja: sprawdzenie obsługi błędu SMTP (braku mailera).
 
 Dokumentacja: `docs/playwright-e2e.md`
+
+---
+
+## 13. Nginx: kolejność startu kontenerów (landing_nginx vs admin_nginx)
+
+### Problem
+
+`landing_nginx` przekierowuje ruch `/admin` do `admin_nginx` przez `proxy_pass`. Nginx domyślnie rozwiązuje hosty upstreamów **przy parsowaniu konfiguracji** (starcie kontenera). Jeśli `admin_nginx` nie jest jeszcze uruchomiony, start `landing_nginx` kończy się błędem:
+
+```
+[emerg] host not found in upstream "admin_nginx" in default.conf:47
+```
+
+### Rozwiązanie (już wdrożone)
+
+`docker/nginx/conf.d/landing.conf` używa zmiennej zamiast literału:
+
+```nginx
+resolver 127.0.0.11 ipv6=off valid=30s;  # Docker DNS
+
+location ^~ /admin {
+    set $admin_upstream http://admin_nginx:80;  # lazy DNS
+    proxy_pass $admin_upstream;
+    ...
+}
+```
+
+Zmienna wymusza lazy DNS resolution — nginx odpytuje resolver dopiero przy rzeczywistym żądaniu, nie przy starcie.
+
+### Weryfikacja
+
+```bash
+# po deploy sprawdź że landing_nginx nie restartuje:
+docker compose --env-file .env.deploy -f compose.prod.yml ps landing_nginx
+# STATUS: Up (nie Restarting)
+
+# test że /admin działa przez proxy:
+curl -I https://infratak.com/admin
+# HTTP/1.1 401 — basic auth challenge z admin_nginx
+```
+
+---
+
+## 14. Migracje produkcyjne — obsługa duplikatów kolumn
+
+Jeśli `doctrine:migrations:migrate` zgłasza `Column already exists`, oznacza to że migracja była wcześniej uruchomiona ręcznie lub częściowo. Naprawia się to przez ręczne oznaczenie jako executed:
+
+```bash
+docker compose --env-file .env.deploy -f compose.prod.yml exec -T landing_php \
+  php bin/console doctrine:migrations:version \
+  'DoctrineMigrations\VersionXXXXXXXXXXXXXX' --add --no-interaction
+```
+
+Następnie ponów normalną migrację:
+
+```bash
+docker compose --env-file .env.deploy -f compose.prod.yml exec -T landing_php \
+  php bin/console doctrine:migrations:migrate --no-interaction
+```

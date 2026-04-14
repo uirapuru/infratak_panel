@@ -364,13 +364,14 @@ sequenceDiagram
   - timestamp
 
 ### Docker Setup
-Configured services:
-- php
-- nginx
-- mariadb
-- rabbitmq
-- worker_provisioning
-- worker_projection
+
+**Dev** (`compose.yaml` + `compose.override.yaml`): single-role, `APP_ROLE=admin`, nginx on :8080.
+
+**Production** (`compose.prod.yml`): dual-role split:
+- `landing_php` + `landing_nginx` — `APP_ROLE=landing`, ports 80/443
+- `admin_php` + `admin_nginx` — `APP_ROLE=admin`, port 8081
+- `landing_nginx` proxies `/admin` → `admin_nginx` using a variable (`set $admin_upstream`) to defer DNS resolution (prevents crash on startup when admin_nginx not yet ready)
+- Shared: `mariadb`, `rabbitmq`, `worker_provisioning`, `worker_projection`, `scheduler`
 
 Worker details:
 - workers use restart: unless-stopped
@@ -378,10 +379,11 @@ Worker details:
 - after changing enums, handlers, or messenger-related code, workers must be restarted
 
 Main files:
-- compose.yaml
-- compose.override.yaml
+- compose.yaml / compose.override.yaml (dev)
+- compose.prod.yml (production)
 - docker/php/Dockerfile
-- docker/nginx/conf.d/default.conf
+- docker/nginx/conf.d/landing.conf (production landing nginx)
+- docker/nginx/conf.d/admin.conf (production admin nginx)
 
 ### Persistence
 - Migration created for server table:
